@@ -1,0 +1,3397 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>主管對話模擬器 · Boss Conversation Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=Cinzel:wght@500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #0a0a14;
+  --bg-mid: #14141f;
+  --bg-card: #1c1c2e;
+  --bg-elev: #252538;
+  --gold: #d4a548;
+  --gold-light: #f0c96a;
+  --gold-dim: #8a6f30;
+  --rose: #e879a0;
+  --red: #ff5470;
+  --red-deep: #8b1e3f;
+  --green: #5dd9a8;
+  --blue: #6ba4f0;
+  --purple: #a78bfa;
+  --text: #f0ebe1;
+  --text-mute: #9a93a8;
+  --text-dim: #5c5670;
+  --border: rgba(212, 165, 72, 0.18);
+  --border-hot: rgba(212, 165, 72, 0.5);
+  --shadow-gold: 0 0 32px rgba(212, 165, 72, 0.15);
+  --shadow-red: 0 0 32px rgba(255, 84, 112, 0.2);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow-x: hidden; }
+body {
+  font-family: 'Noto Sans TC', sans-serif;
+  background: var(--bg-deep);
+  color: var(--text);
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at top, rgba(212, 165, 72, 0.06), transparent 50%),
+    radial-gradient(ellipse at bottom, rgba(167, 139, 250, 0.04), transparent 50%);
+}
+
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, textarea, select { font-family: inherit; }
+
+/* ============ LAYOUT ============ */
+.app {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+  position: relative;
+  z-index: 1;
+}
+
+.screen { display: none; animation: fadeIn 0.5s ease; }
+.screen.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ============ HEADER ============ */
+.title-block { text-align: center; margin-bottom: 36px; }
+.title-mark {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.6em;
+  color: var(--gold);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.title-main {
+  font-size: clamp(1.8rem, 4.5vw, 2.6rem);
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dim));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 4px;
+}
+.title-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  letter-spacing: 0.2em;
+}
+.title-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-content: center;
+  margin-top: 14px;
+  color: var(--gold-dim);
+  font-size: 0.7rem;
+}
+.title-divider::before, .title-divider::after {
+  content: '';
+  width: 64px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--gold-dim), transparent);
+}
+
+/* ============ SETUP CARD ============ */
+.card {
+  background: linear-gradient(180deg, var(--bg-card), var(--bg-mid));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px 26px;
+  box-shadow: var(--shadow-gold);
+  margin-bottom: 18px;
+}
+.card-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--gold);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.card-title::before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background: var(--gold);
+  border-radius: 2px;
+}
+
+.form-grid { display: grid; gap: 18px; grid-template-columns: 1fr 1fr; }
+.form-grid.full { grid-template-columns: 1fr; }
+.form-field { display: flex; flex-direction: column; gap: 6px; }
+.form-field.full { grid-column: 1 / -1; }
+.form-label {
+  font-size: 0.72rem;
+  color: var(--text-mute);
+  letter-spacing: 0.15em;
+  font-weight: 500;
+}
+.form-label .en {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-dim);
+  margin-left: 6px;
+  font-size: 0.65rem;
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  padding: 11px 14px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  outline: none;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212, 165, 72, 0.1);
+}
+.form-textarea { resize: vertical; min-height: 80px; font-family: inherit; line-height: 1.6; }
+.form-hint {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+  letter-spacing: 0.05em;
+}
+
+/* ============ AVATAR UPLOAD ============ */
+.avatar-upload {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+.avatar-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--bg-elev), var(--bg-deep));
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.avatar-preview:hover { border-color: var(--gold); transform: scale(1.03); }
+.avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-preview.empty {
+  background: url('assets/boss-sim/default-boss.png') center / cover no-repeat, linear-gradient(135deg, var(--bg-elev), var(--bg-deep));
+}
+.avatar-preview.empty::after {
+  content: '＋';
+  font-size: 1.6rem;
+  color: var(--gold-light);
+  background: rgba(0,0,0,0.55);
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
+}
+.avatar-actions { display: flex; flex-direction: column; gap: 8px; }
+.btn-upload {
+  padding: 9px 16px;
+  background: var(--gold);
+  color: var(--bg-deep);
+  border-radius: 7px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  transition: all 0.2s;
+}
+.btn-upload:hover { background: var(--gold-light); transform: translateY(-1px); }
+.btn-upload-clear {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-mute);
+  border-radius: 7px;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+}
+.btn-upload-clear:hover { color: var(--red); border-color: var(--red); }
+.avatar-tip { font-size: 0.7rem; color: var(--text-dim); }
+
+/* ============ CHIPS ============ */
+.chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 8px 14px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--text-mute);
+  transition: all 0.2s;
+  letter-spacing: 0.05em;
+}
+.chip:hover { border-color: var(--gold); color: var(--gold-light); }
+.chip.active {
+  background: var(--gold);
+  color: var(--bg-deep);
+  border-color: var(--gold);
+  font-weight: 700;
+}
+
+/* ============ DIFFICULTY ============ */
+.diff-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, 1fr); }
+.diff-card {
+  padding: 18px 14px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s;
+  text-align: center;
+  position: relative;
+}
+.diff-card:hover { transform: translateY(-3px); border-color: var(--border-hot); }
+.diff-card.active {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(212, 165, 72, 0.12), transparent);
+  box-shadow: 0 0 24px rgba(212, 165, 72, 0.2);
+}
+.diff-icon { font-size: 2rem; margin-bottom: 6px; }
+.diff-name { font-size: 0.95rem; font-weight: 700; color: var(--text); margin-bottom: 2px; letter-spacing: 0.05em; }
+.diff-en { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-dim); letter-spacing: 0.15em; margin-bottom: 8px; }
+.diff-desc { font-size: 0.72rem; color: var(--text-mute); line-height: 1.5; }
+
+/* ============ START BUTTON ============ */
+.action-row { display: flex; justify-content: center; gap: 12px; margin-top: 24px; }
+.btn-primary {
+  padding: 14px 36px;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  color: var(--bg-deep);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  transition: all 0.25s;
+  box-shadow: 0 4px 24px rgba(212, 165, 72, 0.3);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(212, 165, 72, 0.4); }
+.btn-primary:disabled { background: var(--bg-elev); color: var(--text-dim); cursor: not-allowed; box-shadow: none; }
+.btn-ghost {
+  padding: 14px 24px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-mute);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+}
+.btn-ghost:hover { border-color: var(--gold); color: var(--gold-light); }
+
+/* ============ SCENE BACKGROUND ============ */
+body.scene-office::before,
+body.scene-meeting::before,
+body.scene-ktv::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.18;
+  filter: blur(2px) saturate(0.85);
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+body.scene-office::before  { background-image: url('assets/boss-sim/bg-office.png'); }
+body.scene-meeting::before { background-image: url('assets/boss-sim/bg-meeting.png'); }
+body.scene-ktv::before     { background-image: url('assets/boss-sim/bg-ktv.png'); }
+body.scene-office::after,
+body.scene-meeting::after,
+body.scene-ktv::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(10,10,20,0.85) 100%);
+  pointer-events: none;
+}
+
+/* ============ GAME SCREEN ============ */
+.game-header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  background: linear-gradient(180deg, var(--bg-card), var(--bg-mid));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 20px 22px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-gold);
+  align-items: center;
+}
+.boss-avatar-large {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  border: 2px solid var(--gold);
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-elev);
+  box-shadow: 0 0 20px rgba(212, 165, 72, 0.3);
+}
+.boss-avatar-large img { width: 100%; height: 100%; object-fit: cover; }
+.boss-avatar-large.empty {
+  background: url('assets/boss-sim/default-boss.png') center / cover no-repeat, var(--bg-elev);
+}
+.mood-emoji {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 36px;
+  height: 36px;
+  background: var(--bg-card);
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  z-index: 2;
+}
+
+.boss-info { display: flex; flex-direction: column; gap: 4px; }
+.boss-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gold-light);
+  letter-spacing: 0.05em;
+}
+.boss-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.boss-tag {
+  font-size: 0.65rem;
+  padding: 3px 9px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-mute);
+  letter-spacing: 0.08em;
+}
+.boss-tag.mbti { color: var(--purple); border-color: rgba(167, 139, 250, 0.3); }
+.boss-tag.diff-easy { color: var(--green); border-color: rgba(93, 217, 168, 0.3); }
+.boss-tag.diff-mid { color: var(--blue); border-color: rgba(107, 164, 240, 0.3); }
+.boss-tag.diff-hard { color: var(--red); border-color: rgba(255, 84, 112, 0.4); }
+
+/* ============ SCORE BAR ============ */
+.score-bar-wrap {
+  background: linear-gradient(180deg, var(--bg-card), var(--bg-mid));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+.score-bar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.score-label {
+  font-size: 0.7rem;
+  color: var(--text-mute);
+  letter-spacing: 0.2em;
+}
+.score-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--gold-light);
+  letter-spacing: 0.05em;
+}
+.score-value .max { color: var(--text-dim); font-size: 0.85rem; }
+.score-bar {
+  height: 14px;
+  background: var(--bg-deep);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--border);
+}
+.score-fill {
+  height: 100%;
+  width: 50%;
+  background: linear-gradient(90deg, var(--red), var(--gold), var(--green));
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+.score-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shimmer 2.5s linear infinite;
+}
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.score-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+}
+
+/* ============ CHAT ============ */
+.chat-wrap {
+  background: linear-gradient(180deg, var(--bg-card), var(--bg-mid));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.chat-log {
+  max-height: 460px;
+  overflow-y: auto;
+  padding: 22px 22px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  scroll-behavior: smooth;
+}
+.chat-log::-webkit-scrollbar { width: 6px; }
+.chat-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+.msg { display: flex; gap: 10px; max-width: 80%; animation: msgIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.msg.boss { align-self: flex-start; }
+.msg.player { align-self: flex-end; flex-direction: row-reverse; }
+.msg.system { align-self: center; max-width: 100%; }
+
+.msg-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-elev);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  border: 1px solid var(--border);
+}
+.msg-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.msg-bubble {
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  position: relative;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.msg.boss .msg-bubble {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-top-left-radius: 4px;
+  color: var(--text);
+}
+.msg.player .msg-bubble {
+  background: linear-gradient(135deg, var(--gold), var(--gold-dim));
+  color: var(--bg-deep);
+  border-top-right-radius: 4px;
+  font-weight: 500;
+}
+.msg.system .msg-bubble {
+  background: rgba(167, 139, 250, 0.08);
+  border: 1px dashed rgba(167, 139, 250, 0.3);
+  color: var(--purple);
+  font-size: 0.78rem;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.05em;
+  text-align: center;
+  padding: 8px 18px;
+  border-radius: 8px;
+}
+
+.msg-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+}
+.msg.player .msg-meta { justify-content: flex-end; }
+.score-delta {
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.score-delta.positive { color: var(--green); background: rgba(93, 217, 168, 0.12); }
+.score-delta.negative { color: var(--red); background: rgba(255, 84, 112, 0.12); }
+.score-delta.zero { color: var(--text-dim); background: var(--bg-deep); }
+
+/* ============ INPUT ============ */
+.chat-input-area {
+  padding: 14px 18px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-deep);
+}
+.suggestion-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.suggestion-chip {
+  padding: 6px 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--text-mute);
+  transition: all 0.2s;
+}
+.suggestion-chip:hover { border-color: var(--gold); color: var(--gold-light); transform: translateY(-1px); }
+
+.input-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.chat-input {
+  flex: 1;
+  padding: 11px 14px;
+  background: var(--bg-mid);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.9rem;
+  resize: none;
+  min-height: 44px;
+  max-height: 120px;
+  outline: none;
+  line-height: 1.5;
+}
+.chat-input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212, 165, 72, 0.1); }
+.btn-send {
+  padding: 11px 22px;
+  background: var(--gold);
+  color: var(--bg-deep);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-send:hover:not(:disabled) { background: var(--gold-light); transform: translateY(-1px); }
+.btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.game-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.btn-small {
+  padding: 7px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.72rem;
+  color: var(--text-mute);
+  letter-spacing: 0.1em;
+  transition: all 0.2s;
+}
+.btn-small:hover { border-color: var(--gold); color: var(--gold-light); }
+.btn-small.danger:hover { border-color: var(--red); color: var(--red); }
+
+/* ============ ENDING ============ */
+.ending-card {
+  text-align: center;
+  padding: 60px 30px;
+  background: linear-gradient(180deg, var(--bg-card), var(--bg-mid));
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.ending-card.promotion {
+  background:
+    linear-gradient(180deg, rgba(212, 165, 72, 0.25), rgba(28, 28, 46, 0.85)),
+    url('assets/boss-sim/ending-promotion.png') center / cover no-repeat;
+  border-color: var(--gold);
+  box-shadow: 0 0 80px rgba(212, 165, 72, 0.3);
+}
+.ending-card.coldpalace {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.6), rgba(5,5,5,0.95)),
+    url('assets/boss-sim/ending-coldplace.png') center / cover no-repeat;
+  border-color: var(--text-dim);
+  filter: saturate(0.5);
+}
+.ending-icon { font-size: 5rem; margin-bottom: 16px; animation: floatY 3s ease-in-out infinite; }
+@keyframes floatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.ending-title {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  margin-bottom: 6px;
+}
+.ending-card.promotion .ending-title {
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.ending-card.coldpalace .ending-title { color: var(--text-mute); }
+.ending-subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--text-mute);
+  letter-spacing: 0.3em;
+  margin-bottom: 28px;
+}
+.ending-stats {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+.stat-block { display: flex; flex-direction: column; gap: 4px; }
+.stat-num { font-family: 'JetBrains Mono', monospace; font-size: 1.6rem; font-weight: 700; color: var(--gold-light); }
+.stat-label { font-size: 0.7rem; color: var(--text-mute); letter-spacing: 0.2em; }
+.ending-quote {
+  font-size: 0.95rem;
+  color: var(--text);
+  line-height: 1.8;
+  max-width: 480px;
+  margin: 0 auto 32px;
+  padding: 18px 24px;
+  background: var(--bg-deep);
+  border-left: 3px solid var(--gold);
+  border-radius: 6px;
+  text-align: left;
+  font-style: italic;
+}
+.ending-card.coldpalace .ending-quote { border-left-color: var(--red-deep); }
+
+/* particles */
+.particle {
+  position: absolute;
+  pointer-events: none;
+  animation: rise 4s linear infinite;
+  opacity: 0;
+}
+@keyframes rise {
+  0% { transform: translateY(100%) scale(0.5); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(-100%) scale(1.2) rotate(180deg); opacity: 0; }
+}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 640px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .diff-grid { grid-template-columns: 1fr; }
+  .game-header { grid-template-columns: 1fr; text-align: center; }
+  .boss-avatar-large { margin: 0 auto; }
+  .msg { max-width: 92%; }
+  .ending-card { padding: 40px 20px; }
+  .ending-title { font-size: 1.5rem; }
+}
+
+/* shake animation for big anger */
+.shake { animation: shake 0.5s ease; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+/* glow for big happy */
+.glow { animation: glowPulse 0.8s ease; }
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(212, 165, 72, 0.3); }
+  50% { box-shadow: 0 0 60px rgba(212, 165, 72, 0.8), 0 0 100px rgba(232, 121, 160, 0.5); }
+}
+
+/* ============ ZODIAC BADGE ============ */
+.zodiac-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 7px 14px;
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.15), rgba(232, 121, 160, 0.08));
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  color: var(--purple);
+  letter-spacing: 0.05em;
+  animation: tagPopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.zodiac-badge .zb-emoji { font-size: 1.1rem; }
+.zodiac-badge .zb-name { font-weight: 700; color: var(--purple); }
+.zodiac-badge .zb-traits { color: var(--text-mute); font-size: 0.74rem; }
+
+.boss-tag.zodiac {
+  color: var(--purple);
+  border-color: rgba(167, 139, 250, 0.4);
+  background: rgba(167, 139, 250, 0.08);
+}
+
+/* ============ ARCHETYPE PICKER ============ */
+.arch-hint {
+  font-size: 0.78rem;
+  color: var(--text-mute);
+  margin-bottom: 12px;
+  letter-spacing: 0.03em;
+  padding: 10px 14px;
+  background: var(--bg-deep);
+  border-radius: 8px;
+  border-left: 3px solid var(--purple);
+  line-height: 1.65;
+}
+.arch-hint strong { color: var(--purple); }
+
+.arch-card[data-aid="custom"] {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.08), var(--bg-deep));
+  border-color: rgba(167, 139, 250, 0.35);
+  border-style: dashed;
+}
+.arch-card[data-aid="custom"] .arch-name { color: var(--purple); }
+.arch-card[data-aid="custom"]:hover { border-color: var(--purple); }
+.arch-card[data-aid="custom"].active {
+  border-color: var(--purple);
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.2), var(--bg-deep));
+  box-shadow: 0 0 24px rgba(167, 139, 250, 0.25);
+}
+
+.custom-tip {
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.08), transparent);
+  border: 1px dashed rgba(167, 139, 250, 0.4);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  font-size: 0.82rem;
+  color: var(--text);
+  line-height: 1.7;
+}
+.custom-tip strong { color: var(--purple); }
+.custom-tip ul { margin: 8px 0 0 18px; }
+.custom-tip li { margin-bottom: 4px; color: var(--text-mute); }
+
+.arch-card {
+  padding: 14px 14px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+.arch-card:hover { border-color: var(--border-hot); transform: translateY(-2px); }
+.arch-card.active {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(212, 165, 72, 0.1), transparent);
+  box-shadow: 0 0 24px rgba(212, 165, 72, 0.15);
+}
+.arch-top { display: flex; align-items: center; gap: 8px; }
+.arch-emoji { font-size: 1.4rem; }
+.arch-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--gold-light);
+  letter-spacing: 0.05em;
+  flex: 1;
+}
+.arch-stars { color: var(--red); font-size: 0.7rem; letter-spacing: 0.1em; }
+.arch-bio {
+  font-size: 0.72rem;
+  color: var(--text-mute);
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+}
+
+/* ============ NOTEBOOK ============ */
+.notebook-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--gold-light);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.notebook-btn:hover { border-color: var(--gold); background: var(--bg-mid); }
+.notebook-btn .nb-count {
+  background: var(--gold);
+  color: var(--bg-deep);
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+.notebook-btn.pulse { animation: nbPulse 0.6s ease; }
+@keyframes nbPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(212,165,72,0.6); }
+  50% { transform: scale(1.08); box-shadow: 0 0 0 12px rgba(212,165,72,0); }
+  100% { transform: scale(1); }
+}
+
+.notebook-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+.notebook-modal.open { display: flex; }
+.notebook-content {
+  background: linear-gradient(180deg, var(--bg-card), var(--bg-mid));
+  border: 1px solid var(--gold);
+  border-radius: 18px;
+  padding: 28px;
+  max-width: 520px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 0 60px rgba(212, 165, 72, 0.25);
+}
+.nb-title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.4em;
+  color: var(--gold);
+  text-align: center;
+  margin-bottom: 4px;
+}
+.nb-subtitle {
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--gold-light);
+  margin-bottom: 18px;
+  letter-spacing: 0.08em;
+}
+.nb-section {
+  margin-bottom: 18px;
+}
+.nb-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.nb-section.likes .nb-section-head { color: var(--green); border-color: rgba(93,217,168,0.3); }
+.nb-section.dislikes .nb-section-head { color: var(--red); border-color: rgba(255,84,112,0.3); }
+.nb-empty {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 12px 0;
+}
+.nb-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  margin: 3px;
+  letter-spacing: 0.05em;
+  animation: tagPopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.nb-section.likes .nb-tag { color: var(--green); border-color: rgba(93,217,168,0.3); }
+.nb-section.dislikes .nb-tag { color: var(--red); border-color: rgba(255,84,112,0.3); }
+@keyframes tagPopIn {
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1); }
+}
+.nb-close {
+  width: 100%;
+  padding: 12px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--gold-light);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  margin-top: 8px;
+  cursor: pointer;
+}
+.nb-close:hover { border-color: var(--gold); }
+.nb-tip {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  line-height: 1.7;
+  padding: 12px;
+  background: var(--bg-deep);
+  border-radius: 8px;
+  border-left: 3px solid var(--purple);
+  margin-bottom: 14px;
+}
+
+/* ============ MISSION ============ */
+.mission-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 16px 18px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.mission-card:hover { border-color: var(--border-hot); transform: translateY(-2px); }
+.mission-card.active {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(212, 165, 72, 0.1), transparent);
+  box-shadow: 0 0 24px rgba(212, 165, 72, 0.15);
+}
+.mission-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gold-light);
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+}
+.mission-desc {
+  font-size: 0.85rem;
+  color: var(--text-mute);
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+.mission-meta {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.mission-banner {
+  background: linear-gradient(135deg, rgba(255, 84, 112, 0.12), rgba(212, 165, 72, 0.08));
+  border: 1px solid rgba(255, 84, 112, 0.35);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.mission-banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at top right, rgba(255, 84, 112, 0.2), transparent 60%);
+  pointer-events: none;
+}
+.mb-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  position: relative;
+}
+.mb-icon { font-size: 1.2rem; }
+.mb-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--gold-light);
+  letter-spacing: 0.08em;
+  flex: 1;
+}
+.mb-turns {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--bg-deep);
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-weight: 700;
+}
+.mb-turns.warn { color: var(--red); border-color: rgba(255, 84, 112, 0.5); }
+.mb-goal {
+  font-size: 0.78rem;
+  color: var(--text-mute);
+  line-height: 1.5;
+  letter-spacing: 0.03em;
+  position: relative;
+}
+.mb-warn {
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--red);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  animation: pulseWarn 1.5s ease-in-out infinite;
+}
+@keyframes pulseWarn { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+
+.mission-setup-card {
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.08), var(--bg-mid));
+  border-left: 3px solid var(--purple);
+  padding: 14px 18px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.7;
+  margin-bottom: 14px;
+  font-style: italic;
+}
+
+/* ============ AI MODE ============ */
+.mode-toggle { display: flex; gap: 8px; flex-wrap: wrap; }
+.mode-pill {
+  padding: 9px 18px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  color: var(--text-mute);
+  transition: all 0.2s;
+  letter-spacing: 0.05em;
+}
+.mode-pill:hover { border-color: var(--gold); color: var(--gold-light); }
+.mode-pill.active {
+  background: var(--gold);
+  color: var(--bg-deep);
+  border-color: var(--gold);
+  font-weight: 700;
+}
+.api-key-row { display: flex; gap: 8px; }
+.api-key-input { flex: 1; }
+.btn-test {
+  padding: 11px 16px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--gold-light);
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.btn-test:hover:not(:disabled) { border-color: var(--gold); background: var(--bg-mid); }
+.btn-test:disabled { opacity: 0.5; cursor: not-allowed; }
+.api-status { font-size: 0.7rem; margin-top: 6px; letter-spacing: 0.05em; line-height: 1.5; }
+.api-status.success { color: var(--green); }
+.api-status.error { color: var(--red); }
+.api-status.info { color: var(--text-dim); }
+
+/* ============ TYPING INDICATOR ============ */
+.msg.typing .msg-bubble {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 14px 18px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  border-top-left-radius: 4px;
+}
+.typing-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--text-mute);
+  border-radius: 50%;
+  animation: typingBlink 1.2s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.18s; }
+.typing-dot:nth-child(3) { animation-delay: 0.36s; }
+@keyframes typingBlink {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-4px); }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<!-- ============ SETUP SCREEN ============ -->
+<section id="setupScreen" class="screen active">
+  <div class="title-block">
+    <div class="title-mark">Boss Conversation Simulator</div>
+    <h1 class="title-main">主管對話模擬器</h1>
+    <div class="title-sub">SURVIVE.OR.PROMOTE — 升職 or 冷宮，看你的造化</div>
+    <div class="title-divider">✦</div>
+  </div>
+
+  <!-- Boss profile -->
+  <div class="card">
+    <div class="card-title">主管設定 / Boss Profile</div>
+
+    <div class="form-grid full" style="margin-bottom: 18px;">
+      <div class="form-field">
+        <span class="form-label">頭像上傳 <span class="en">avatar</span></span>
+        <div class="avatar-upload">
+          <label for="avatarInput" class="avatar-preview empty" id="avatarPreview"></label>
+          <input type="file" id="avatarInput" accept="image/*" hidden>
+          <div class="avatar-actions">
+            <button type="button" class="btn-upload" onclick="document.getElementById('avatarInput').click()">選擇圖片 Upload</button>
+            <button type="button" class="btn-upload-clear" id="avatarClear" style="display:none;">移除 Clear</button>
+            <span class="avatar-tip">建議方形圖、JPG / PNG</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Archetype picker -->
+    <div class="form-field full" style="margin-bottom: 18px;">
+      <span class="form-label">主管類型 <span class="en">archetype · 隱藏內心,要靠對話發現</span></span>
+      <div class="arch-hint" style="margin-top: 8px;">
+        前 5 個是<strong>預設原型</strong>(快速開始)。最下面那張 <strong>✏️ 自訂主管</strong> 給你輸入<strong>真實主管</strong>的設定 —— 拿來練習實戰場景最有效。
+      </div>
+      <div id="archetypeList" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 8px;"></div>
+    </div>
+
+    <!-- Public bio (shown after select) -->
+    <div id="archetypeBio" class="mission-setup-card" style="display:none;"></div>
+
+    <!-- Cosmetic fields -->
+    <div class="form-grid">
+      <div class="form-field">
+        <span class="form-label">主管名字 <span class="en">name (可改)</span></span>
+        <input type="text" class="form-input" id="bossName" placeholder="自動帶入,可自己改" maxlength="20">
+      </div>
+      <div class="form-field">
+        <span class="form-label">職位 <span class="en">title (可改)</span></span>
+        <input type="text" class="form-input" id="bossTitle" placeholder="自動帶入,可自己改" maxlength="30">
+      </div>
+      <div class="form-field">
+        <span class="form-label">生日 <span class="en">birthday · 決定星座</span></span>
+        <input type="date" class="form-input" id="bossBirthday">
+        <div id="zodiacBadge" class="zodiac-badge" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Custom mode help (only visible in 自訂 mode) -->
+    <div id="customTip" class="custom-tip" style="display:none;">
+      <strong>✏️ 自訂主管 — 輸入真實主管的設定來練實戰</strong>
+      <ul>
+        <li><strong>MBTI</strong> — 知道就填,不知道也可空白(AI 會從個性 + 人設推斷)</li>
+        <li><strong>個性標籤</strong> — 勾你主管最明顯的 3-5 個特質</li>
+        <li><strong>角色人設</strong> — 一兩句白話描述。年紀、背景、口頭禪、底線。<br>例:「45 歲女主管,財金背景,最討厭員工沒進度更新還在說 OK。口頭禪:『所以呢?』」</li>
+        <li><strong>隱藏雷點</strong> — 你主管真正會炸的點,頓號分隔(例:遲到、推卸、抱怨)</li>
+        <li><strong>隱藏喜好</strong> — 你主管真正吃這套的東西(例:數據、KPI、提前回報、紅酒)</li>
+      </ul>
+      <div style="margin-top:10px; font-size: 0.75rem; color: var(--text-dim);">⚡ 你填的會儲存在這台機器的瀏覽器,下次自動帶回。</div>
+    </div>
+
+    <!-- Custom-only fields (display:none unless 自訂 archetype) -->
+    <div id="customFields" class="form-grid" style="display:none; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border);">
+      <div class="form-field">
+        <span class="form-label">MBTI</span>
+        <select class="form-select" id="bossMbti">
+          <option value="">— 未指定 —</option>
+          <option>INTJ</option><option>INTP</option><option>ENTJ</option><option>ENTP</option>
+          <option>INFJ</option><option>INFP</option><option>ENFJ</option><option>ENFP</option>
+          <option>ISTJ</option><option>ISFJ</option><option>ESTJ</option><option>ESFJ</option>
+          <option>ISTP</option><option>ISFP</option><option>ESTP</option><option>ESFP</option>
+        </select>
+      </div>
+      <div class="form-field full">
+        <span class="form-label">個性標籤 <span class="en">personality (multi-select)</span></span>
+        <div class="chip-group" id="personalityChips">
+          <button type="button" class="chip" data-trait="嚴格">嚴格 Strict</button>
+          <button type="button" class="chip" data-trait="完美主義">完美主義 Perfectionist</button>
+          <button type="button" class="chip" data-trait="情緒化">情緒化 Moody</button>
+          <button type="button" class="chip" data-trait="記仇">記仇 Holds grudges</button>
+          <button type="button" class="chip" data-trait="重數據">重數據 Data-driven</button>
+          <button type="button" class="chip" data-trait="重結果">重結果 Result-oriented</button>
+          <button type="button" class="chip" data-trait="愛拍馬屁">吃軟不吃硬 Loves flattery</button>
+          <button type="button" class="chip" data-trait="社畜">社畜風 Workaholic</button>
+          <button type="button" class="chip" data-trait="老派">老派 Old-school</button>
+          <button type="button" class="chip" data-trait="文青">文青 Hipster</button>
+        </div>
+      </div>
+      <div class="form-field full">
+        <span class="form-label">角色人設 <span class="en">character setting</span></span>
+        <textarea class="form-textarea" id="bossPersona" placeholder="例:45 歲女主管,財金背景,空降兩年。最討厭員工沒進度更新還回 OK。口頭禪:『所以呢?』" style="min-height: 90px;"></textarea>
+      </div>
+      <div class="form-field">
+        <span class="form-label">隱藏雷點 <span class="en">hidden triggers · 頓號分隔</span></span>
+        <input type="text" class="form-input" id="bossDislikes" placeholder="例:遲到、推卸、抱怨同事、應該、可能">
+        <span class="form-hint">玩家在遊戲中不會看到,要靠對話發現</span>
+      </div>
+      <div class="form-field">
+        <span class="form-label">隱藏喜好 <span class="en">hidden likes · 頓號分隔</span></span>
+        <input type="text" class="form-input" id="bossLikes" placeholder="例:數據、KPI、紅酒、提前回報、結案">
+        <span class="form-hint">玩家在遊戲中不會看到,要靠對話發現</span>
+      </div>
+    </div>
+
+    <!-- Scene chips -->
+    <div class="form-field full" style="margin-top: 18px;">
+      <span class="form-label">對話場景 <span class="en">scene · 任務模式下會自動切換</span></span>
+      <div class="chip-group" id="sceneChips">
+        <button type="button" class="chip active" data-scene="office">辦公室 Office</button>
+        <button type="button" class="chip" data-scene="meeting">會議室 Meeting</button>
+        <button type="button" class="chip" data-scene="ktv">應酬 / KTV</button>
+        <button type="button" class="chip" data-scene="oneonone">一對一 1-on-1</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Play Mode -->
+  <div class="card">
+    <div class="card-title">玩法模式 / Mode</div>
+    <div class="mode-toggle" id="playModeToggle">
+      <button type="button" class="mode-pill" data-pm="sandbox">🗨️ 沙盒模式（自由聊）</button>
+      <button type="button" class="mode-pill active" data-pm="mission">🎯 任務模式（建議）</button>
+    </div>
+    <div id="missionPicker" style="margin-top: 16px;">
+      <div class="form-label" style="margin-bottom: 10px; display:block;">選擇任務 <span class="en">choose mission · 從輕到重</span></div>
+      <div id="missionList" style="display: flex; flex-direction: column; gap: 10px;"></div>
+      <div id="weekProgress" style="margin-top: 12px; font-size: 0.72rem; color: var(--text-dim); letter-spacing: 0.1em; text-align: center;"></div>
+    </div>
+  </div>
+
+  <!-- Difficulty -->
+  <div class="card">
+    <div class="card-title">難度選擇 / Difficulty</div>
+    <div class="diff-grid" id="diffGrid">
+      <button type="button" class="diff-card" data-diff="easy">
+        <div class="diff-icon">🌱</div>
+        <div class="diff-name">新人</div>
+        <div class="diff-en">EASY</div>
+        <div class="diff-desc">主管脾氣較好<br>加分容易、扣分溫和</div>
+      </button>
+      <button type="button" class="diff-card active" data-diff="normal">
+        <div class="diff-icon">⚔️</div>
+        <div class="diff-name">老鳥</div>
+        <div class="diff-en">NORMAL</div>
+        <div class="diff-desc">標準難度<br>該說什麼自己掂量</div>
+      </button>
+      <button type="button" class="diff-card" data-diff="hell">
+        <div class="diff-icon">🔥</div>
+        <div class="diff-name">地獄</div>
+        <div class="diff-en">HELL</div>
+        <div class="diff-desc">主管隨時爆炸<br>扣分翻倍、加分減半</div>
+      </button>
+    </div>
+  </div>
+
+  <!-- AI Settings -->
+  <div class="card">
+    <div class="card-title">AI 模式 / Claude API <span style="color: var(--text-dim); font-size: 0.65rem; letter-spacing: 0.2em; margin-left: auto; font-weight: 400;">選用 OPTIONAL</span></div>
+    <div class="form-grid">
+      <div class="form-field full">
+        <span class="form-label">回應引擎 <span class="en">engine</span></span>
+        <div class="mode-toggle" id="modeToggle">
+          <button type="button" class="mode-pill active" data-mode="off">🤖 規則版（離線、免費）</button>
+          <button type="button" class="mode-pill" data-mode="on">✨ AI 版（Claude，更智能）</button>
+        </div>
+      </div>
+      <div class="form-field full" id="apiKeyField" style="display: none;">
+        <span class="form-label">Anthropic API Key <span class="en">sk-ant-...</span></span>
+        <div class="api-key-row">
+          <input type="password" class="form-input api-key-input" id="apiKey" placeholder="sk-ant-..." autocomplete="off">
+          <button type="button" class="btn-test" id="btnTestApi">測試連線 TEST</button>
+        </div>
+        <div class="api-status info" id="apiStatus">⚠️ Key 只存在你的瀏覽器 localStorage、不會上傳；但別把這個 HTML 檔分享給別人。</div>
+      </div>
+      <div class="form-field full" id="modelField" style="display: none;">
+        <span class="form-label">模型 <span class="en">model</span></span>
+        <select class="form-select" id="aiModel">
+          <option value="claude-haiku-4-5">Haiku 4.5 — 快、便宜（建議）</option>
+          <option value="claude-sonnet-4-6">Sonnet 4.6 — 更會演戲、貴 3 倍</option>
+        </select>
+        <span class="form-hint">每回合約 0.001~0.005 美元；用 Haiku 一場遊戲不到 1 元台幣</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-row">
+    <button class="btn-ghost" id="btnLoad">載入存檔 Load</button>
+    <button class="btn-primary" id="btnStart">開始模擬 Start</button>
+  </div>
+</section>
+
+<!-- ============ GAME SCREEN ============ -->
+<section id="gameScreen" class="screen">
+  <div class="game-header">
+    <div class="boss-avatar-large empty" id="gameAvatar">
+      <span class="mood-emoji" id="moodEmoji">😐</span>
+    </div>
+    <div class="boss-info">
+      <div class="boss-name" id="gameName">主管</div>
+      <div id="gameTitleText" style="font-size: 0.78rem; color: var(--text-mute); letter-spacing: 0.1em;"></div>
+      <div class="boss-tags" id="gameTags"></div>
+    </div>
+  </div>
+
+  <!-- Mission banner (task mode only) -->
+  <div class="mission-banner" id="missionBanner" style="display:none;">
+    <div class="mb-row">
+      <span class="mb-icon" id="mbIcon">🎯</span>
+      <span class="mb-title" id="mbTitle">任務</span>
+      <span class="mb-turns" id="mbTurns"><span id="mbTurnsLeft">6</span> / <span id="mbTurnsTotal">6</span> 回合</span>
+    </div>
+    <div class="mb-goal" id="mbGoal">目標</div>
+    <div class="mb-warn" id="mbWarn" style="display:none;">⚠️ 好感度接近底線，再不挽回就翻車！</div>
+  </div>
+
+  <div class="score-bar-wrap">
+    <div class="score-bar-head">
+      <span class="score-label">主管好感度 / FAVORABILITY</span>
+      <div style="display:flex; align-items:center; gap: 10px;">
+        <button type="button" class="notebook-btn" id="btnNotebook">📓 情報 <span class="nb-count" id="nbCount">0</span></button>
+        <span class="score-value"><span id="scoreVal">50</span><span class="max"> / 100</span></span>
+      </div>
+    </div>
+    <div class="score-bar">
+      <div class="score-fill" id="scoreFill"></div>
+    </div>
+    <div class="score-ticks">
+      <span>冷宮 0</span><span>50</span><span>升職 100</span>
+    </div>
+  </div>
+
+  <div class="chat-wrap">
+    <div class="chat-log" id="chatLog"></div>
+    <div class="chat-input-area">
+      <div class="suggestion-row" id="suggestionRow">
+        <!-- dynamic suggestions -->
+      </div>
+      <div class="input-row">
+        <textarea class="chat-input" id="chatInput" placeholder="輸入你要對主管說的話... / Type to your boss" rows="1"></textarea>
+        <button class="btn-send" id="btnSend">送出 SEND</button>
+      </div>
+      <div class="game-actions">
+        <div style="display:flex; gap:8px;">
+          <button class="btn-small" id="btnSave">💾 存檔</button>
+          <button class="btn-small" id="btnHint">💡 小提示</button>
+        </div>
+        <button class="btn-small danger" id="btnQuit">離開 QUIT</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ENDING SCREEN ============ -->
+<section id="endingScreen" class="screen">
+  <div class="ending-card" id="endingCard">
+    <div class="ending-icon" id="endingIcon">👑</div>
+    <div class="ending-title" id="endingTitle">升職成功</div>
+    <div class="ending-subtitle" id="endingSubtitle">PROMOTION ACHIEVED</div>
+    <div class="ending-stats">
+      <div class="stat-block">
+        <div class="stat-num" id="endTurns">0</div>
+        <div class="stat-label">對話回合 TURNS</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num" id="endScore">100</div>
+        <div class="stat-label">最終分數 SCORE</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num" id="endMax">0</div>
+        <div class="stat-label">最大加分 BEST</div>
+      </div>
+    </div>
+    <div class="ending-quote" id="endingQuote"></div>
+    <div class="action-row">
+      <button class="btn-ghost" id="btnReplay">再試一次 Retry</button>
+      <button class="btn-primary" id="btnNextMission" style="display:none;">下一關 NEXT →</button>
+      <button class="btn-ghost" id="btnReset">回設定 Reset</button>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<!-- Notebook modal -->
+<div class="notebook-modal" id="notebookModal">
+  <div class="notebook-content">
+    <div class="nb-title">📓 INTEL</div>
+    <div class="nb-subtitle">情報筆記本</div>
+    <div class="nb-tip">
+      你對這位主管的觀察筆記。當你說的話讓主管反應強烈時(大加分或大扣分),系統會自動把觸發的關鍵字記下來。<br>
+      用這個筆記本拼湊出主管的真實偏好,接下來就能對症下藥。
+    </div>
+    <div class="nb-section likes">
+      <div class="nb-section-head">
+        <span>💚 已發現的喜好</span>
+        <span id="nbLikesCount" style="font-family: monospace;">0</span>
+      </div>
+      <div id="nbLikesList"><div class="nb-empty">還沒發現任何喜好——多試幾種話題、看哪句話讓主管眼睛一亮。</div></div>
+    </div>
+    <div class="nb-section dislikes">
+      <div class="nb-section-head">
+        <span>🔥 已發現的雷點</span>
+        <span id="nbDislikesCount" style="font-family: monospace;">0</span>
+      </div>
+      <div id="nbDislikesList"><div class="nb-empty">還沒踩到雷——但小心,通常踩到時主管會立刻翻臉。</div></div>
+    </div>
+    <button class="nb-close" id="nbClose">關閉 CLOSE</button>
+  </div>
+</div>
+
+<!-- 本機密鑰檔（gitignored，沒有也能跑） -->
+<script src="boss-sim-secrets.js" onerror="window.BOSS_SIM_SECRETS=null;"></script>
+<script>
+'use strict';
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  boss: {
+    name: '', title: '', birthday: '', mbti: '',
+    personality: [], persona: '',
+    hiddenLikes: [], hiddenDislikes: [],   // 隱藏內心,玩家看不到,AI 看得到
+    scene: 'office', avatar: null,
+    archetype: 'tyrant'                     // 主管原型 id
+  },
+  difficulty: 'normal',
+  score: 50,
+  turns: 0,
+  bestDelta: 0,
+  log: [],
+  ended: false,
+  mode: 'mission',
+  missionId: 'monday_standup',
+  mission: null,
+  discovered: { likes: [], dislikes: [] }   // 玩家發現的喜好/雷點
+};
+
+// ============================================================
+// ZODIACS — 星座（生日對應 + 性格傾向）
+// ============================================================
+const ZODIACS = {
+  aries:       { name: '牡羊座', emoji: '♈', traits: '衝動、好勝、直接、急性子', extraLikes: ['衝勁', '主動', '第一', '搶','果斷','馬上','立刻'], extraDislikes: ['猶豫', '慢吞吞', '退讓','拖泥帶水','想太多'] },
+  taurus:      { name: '金牛座', emoji: '♉', traits: '固執、踏實、重物質、慢熱', extraLikes: ['穩定', '具體', '踏實', '錢','長期','省'], extraDislikes: ['變動', '空談', '理想化','花俏','燒錢'] },
+  gemini:      { name: '雙子座', emoji: '♊', traits: '善變、善溝通、好奇、機靈', extraLikes: ['新點子', '溝通', '輕鬆','創意','變通'], extraDislikes: ['無聊', '一成不變', '沉悶','死板'] },
+  cancer:      { name: '巨蟹座', emoji: '♋', traits: '情緒化、護短、念舊、敏感', extraLikes: ['團隊', '關心', '陪伴', '感謝','大家','溫暖'], extraDislikes: ['冷漠', '不夠 care', '背叛','現實','疏離'] },
+  leo:         { name: '獅子座', emoji: '♌', traits: '愛面子、霸氣、自信、好強', extraLikes: ['崇拜', '讚美', '面子', '主導','大方','英明'], extraDislikes: ['挑戰權威', '不給面子', '搶光環','頂撞','寒酸'] },
+  virgo:       { name: '處女座', emoji: '♍', traits: '完美主義、龜毛、邏輯、挑剔', extraLikes: ['細節', '完美', '邏輯', '整齊', '檢查','嚴謹','流程'], extraDislikes: ['粗心', '差不多', '亂', '不專業','馬虎'] },
+  libra:       { name: '天秤座', emoji: '♎', traits: '公平、外交、優柔、重美感', extraLikes: ['公平', '平衡', '美感', '雙贏','和氣','風度'], extraDislikes: ['偏袒', '醜', '極端','撕破臉'] },
+  scorpio:     { name: '天蠍座', emoji: '♏', traits: '記仇、深沉、佔有、洞察力強', extraLikes: ['忠誠', '深度', '專注', '掌控','底牌','信任'], extraDislikes: ['背叛', '輕浮', '失控','三心二意','洩密'] },
+  sagittarius: { name: '射手座', emoji: '♐', traits: '自由、直率、樂觀、不愛束縛', extraLikes: ['冒險', '坦白', '視野', '國際','機會','大格局'], extraDislikes: ['拘束', '虛偽', '小家子氣','SOP'] },
+  capricorn:   { name: '摩羯座', emoji: '♑', traits: '嚴肅、責任感、現實、長遠', extraLikes: ['責任', 'KPI', '紀律', '長遠','穩紮穩打','權威'], extraDislikes: ['偷懶', '不負責', '短視','耍小聰明','打混'] },
+  aquarius:    { name: '水瓶座', emoji: '♒', traits: '理性、特立獨行、創新、抽離', extraLikes: ['創意', '理性', '獨立', '系統','突破','框架'], extraDislikes: ['老套', '情緒勒索', '依賴','跟風'] },
+  pisces:      { name: '雙魚座', emoji: '♓', traits: '感性、浪漫、敏感、容易受傷', extraLikes: ['同理', '直覺', '夢想', '故事','體諒','溫柔'], extraDislikes: ['冷酷', '功利', '咄咄逼人','現實主義','嗆'] }
+};
+
+function getZodiacKey(birthday) {
+  if (!birthday) return null;
+  const parts = birthday.split('-');
+  if (parts.length < 3) return null;
+  const m = parseInt(parts[1], 10);
+  const d = parseInt(parts[2], 10);
+  if (!m || !d) return null;
+  const md = m * 100 + d;
+  if (md >= 321 && md <= 419) return 'aries';
+  if (md >= 420 && md <= 520) return 'taurus';
+  if (md >= 521 && md <= 621) return 'gemini';
+  if (md >= 622 && md <= 722) return 'cancer';
+  if (md >= 723 && md <= 822) return 'leo';
+  if (md >= 823 && md <= 922) return 'virgo';
+  if (md >= 923 && md <= 1023) return 'libra';
+  if (md >= 1024 && md <= 1122) return 'scorpio';
+  if (md >= 1123 && md <= 1221) return 'sagittarius';
+  if (md >= 1222 || md <= 119) return 'capricorn';
+  if (md >= 120 && md <= 218) return 'aquarius';
+  if (md >= 219 && md <= 320) return 'pisces';
+  return null;
+}
+
+// ============================================================
+// ARCHETYPES — 主管原型（隱藏內心）
+// ============================================================
+const ARCHETYPES = {
+  tyrant: {
+    id: 'tyrant',
+    name: '老派威權型',
+    emoji: '👔',
+    publicBio: '50 歲，白手起家、空降高層。穿西裝、氣場壓人。講話從不收。',
+    difficultyStars: 3,
+    defaultName: '張總',
+    defaultTitle: '營運總監 / COO',
+    defaultBirthday: '1972-12-28',  // 摩羯座 — 嚴肅、責任、長遠
+    // 隱藏設定
+    mbti: 'ENTJ',
+    personality: ['嚴格', '完美主義', '重數據', '重結果', '記仇'],
+    persona: '白手起家、創業 15 年。最討厭員工說「應該」「可能」這種模糊字眼。口頭禪:「所以呢?」',
+    hiddenLikes: ['數據', 'KPI', '效率', '結案', '紅酒', '高爾夫', '提前完成', '主動回報', '具體', '責任', '扛', '結果', '盈利'],
+    hiddenDislikes: ['遲到', '推卸', '找藉口', '應該', '可能', '不確定', '加班抱怨', '隨便', '看心情', '差不多', '盡量', '試試看']
+  },
+  artisan: {
+    id: 'artisan',
+    name: '文青設計總監',
+    emoji: '🎨',
+    publicBio: '40 歲，海外回來。穿白 T 牛仔褲、戴黑框眼鏡。講話慢、看人也慢。',
+    difficultyStars: 2,
+    defaultName: '林總監',
+    defaultTitle: '設計總監 / Design Director',
+    defaultBirthday: '1985-03-10',  // 雙魚座 — 感性、夢想、故事
+    mbti: 'INFP',
+    personality: ['完美主義', '文青', '情緒化'],
+    persona: '對美感異常執著。最看不起把「使用者體驗」掛嘴邊但不真懂的人。口頭禪:「再 polish 一下。」',
+    hiddenLikes: ['美感', '細節', '質感', '使用者', '體驗', '研究', '同理', '案例', '慢工', '手感', '靈感', '紋理', '故事', '原型'],
+    hiddenDislikes: ['套版', '俗氣', 'cliche', '功能性', '趕工', '差不多', 'roi', '純效率', '冷冰冰', '便宜', '量產', '快點']
+  },
+  politician: {
+    id: 'politician',
+    name: '政治家業務 VP',
+    emoji: '🤝',
+    publicBio: '45 歲、業務出身。永遠穿西裝、笑容滿面、逢人都拍肩。',
+    difficultyStars: 3,
+    defaultName: '陳副總',
+    defaultTitle: '業務副總 / VP of Sales',
+    defaultBirthday: '1979-08-05',  // 獅子座 — 愛面子、霸氣、要被崇拜
+    mbti: 'ESFP',
+    personality: ['情緒化', '愛拍馬屁', '記仇'],
+    persona: '靠關係上來的。最在意「面子」與「客戶感受」。私下記性極好。口頭禪:「給人面子很重要齁。」',
+    hiddenLikes: ['關係', '客戶', '面子', '請客', '會講話', '梯子', '幫忙', '罩', '兄弟', '酒桌', '高爾夫', '長輩', '互相', '陪'],
+    hiddenDislikes: ['直接拒絕', '不識相', '技術', '邏輯', '太死板', '不會看臉色', '頂撞', '撕破臉', '冷', '機械', '不通人情']
+  },
+  engineer: {
+    id: 'engineer',
+    name: '重數據工程師型',
+    emoji: '📊',
+    publicBio: '38 歲、技術出身、剛升上總監。週六加班、咖啡比命還重要。',
+    difficultyStars: 2,
+    defaultName: '李總監',
+    defaultTitle: '技術總監 / Engineering Director',
+    defaultBirthday: '1986-09-08',  // 處女座 — 完美主義、龜毛、邏輯
+    mbti: 'INTJ',
+    personality: ['完美主義', '重數據', '重結果'],
+    persona: '相信邏輯與數字。最看不起「我覺得」「應該」這種沒根據的話。口頭禪:「show me the data。」',
+    hiddenLikes: ['數據', '根因', 'rca', '系統', '邏輯', '簡潔', '量化', '指標', 'metric', '具體', '驗證', '%', '監控', '架構'],
+    hiddenDislikes: ['感覺', '我覺得', '應該', 'maybe', 'probably', '情緒', '誇張', '空話', '主觀', '經驗', 'gut', '差不多']
+  },
+  nice_guy: {
+    id: 'nice_guy',
+    name: '老好人裝甲型',
+    emoji: '😊',
+    publicBio: '55 歲、溫和、好相處。看起來像老好人,每個人都覺得他超 nice。',
+    difficultyStars: 4,
+    defaultName: '黃副總',
+    defaultTitle: '管理副總 / VP of Operations',
+    defaultBirthday: '1968-11-08',  // 天蠍座 — 表面平靜、深沉、記仇
+    mbti: 'ISFJ',
+    personality: ['記仇', '完美主義', '老派'],
+    persona: '表面笑笑、心裡都在記。從來不大聲,但年終時帳會算得很清。最看不起「自我中心」的人。',
+    hiddenLikes: ['團隊', '感謝', '細心', '低調', '不搶功', '幫忙', '輔助', '穩定', '客氣', '謙虛', '為大家', '一起'],
+    hiddenDislikes: ['搶功', '我我我', '個人秀', '自誇', '抱怨同事', '衝突', '戲劇化', '高調', '搶話', '邀功', '我做的']
+  },
+  custom: {
+    id: 'custom',
+    name: '自訂主管',
+    emoji: '✏️',
+    publicBio: '完全自己設定 — 適合進階玩家或重玩特定情境。會展開所有欄位讓你填。',
+    difficultyStars: 0,
+    defaultName: '',
+    defaultTitle: '',
+    mbti: '',
+    personality: [],
+    persona: '',
+    hiddenLikes: [],
+    hiddenDislikes: [],
+    isCustom: true
+  }
+};
+
+// ============================================================
+// MISSIONS — 任務劇本（v2：上班週 5 關）
+// ============================================================
+const MISSION_ORDER = ['monday_standup', 'budget_defense', 'emergency_meeting', 'ktv_loyalty', 'transfer_threat'];
+
+const MISSIONS = {
+  // ---------- 1. 週一晨會 ----------
+  monday_standup: {
+    id: 'monday_standup',
+    day: '週一',
+    order: 1,
+    icon: '☕',
+    title: '週一晨會',
+    setup: '週一早上 9:05。晨會已經開始。輪到你報進度時全場安靜——你那個 case delay 了三天還沒交。張總抬起頭看你。',
+    objective: '5 回合內讓主管接受新時程',
+    objectiveLong: '在 5 回合內，給出可信的延期方案、讓主管說「OK」「先這樣」「行吧」之類同意的話，且好感度 ≥ 60',
+    scene: 'meeting',
+    turnLimit: 5,
+    initialScore: 45,
+    winScoreThreshold: 60,
+    floorScore: 20,
+    softenKeywords: ['OK', 'ok', '好吧', '行', '行吧', '可以', '先這樣', '那就', '算了', '我知道了', '記住下次', '那就一週', '那就週', '聽你的'],
+    opener: '你那個 case 呢？週五就要交，現在跟我說 delay 三天？這事你準備怎麼處理？',
+    aiBriefing: `【本關任務】
+- 標題：週一晨會
+- 情境：玩家負責的案子 delay 三天，週五要交，現在週一早上晨會。
+- 你（主管）一早就要聽到壞消息，心情不爽。
+- 玩家目標：5 回合內給出可信新時程，讓你說「OK」「先這樣」之類同意的話。
+- 你的內心戲：你要的是 plan，不是道歉。沒方案就扣分。空泛的「我會努力」要重砲扣。給「具體新 deadline + 補救方法 + 風險控管」就軟化。`,
+    endings: {
+      win: { title: '化解危機', subtitle: 'CRISIS AVERTED', icon: '✅', quote: '張總點點頭：「那就照你說的，週三晚 8 點前。再 delay 就不只是談話了。」\n\n— 你給了讓人信的 plan。週五前還能挽回。' },
+      floor: { title: '當場掛黑名單', subtitle: 'BLACKLISTED', icon: '🚫', quote: '張總：「夠了，這 case 我抽掉，你週三來我辦公室。」\n\n— 你越解釋越糟。這 case 不關你了，但張總會記著。' },
+      timeout: { title: '不了了之', subtitle: 'DISMISSED', icon: '😐', quote: '張總翻翻文件：「先這樣，下一個。」沒再看你。\n\n— 你 5 個回合都沒給出 plan。冷處理。' }
+    },
+    next: 'budget_defense'
+  },
+
+  // ---------- 2. 預算保衛戰 ----------
+  budget_defense: {
+    id: 'budget_defense',
+    day: '週二',
+    order: 2,
+    icon: '💰',
+    title: '預算保衛戰',
+    setup: '週二下午 2 點。財務會議室。張總攤開預算表：「你 team 那筆，我打算砍一半。上季 ROI 你也清楚。」',
+    objective: '7 回合內保住預算',
+    objectiveLong: '在 7 回合內，用數據與計畫說服主管收回成命、讓他說「再算算」「先保留」「暫緩」之類讓步的話，且好感度 ≥ 65',
+    scene: 'meeting',
+    turnLimit: 7,
+    initialScore: 40,
+    winScoreThreshold: 65,
+    floorScore: 20,
+    softenKeywords: ['再算', '再看', '再評估', '先保留', '先別砍', '暫緩', '考慮', '那就', '保留', '不砍', '收回', '改成', '緩一緩', '給你一', '給你季', '撤回'],
+    opener: '我把話放這：要砍。除非你給我看到我沒看到的東西。三分鐘內，說服我。',
+    aiBriefing: `【本關任務】
+- 標題：預算保衛戰
+- 情境：主管要砍玩家 team 一半預算，理由是上季 ROI 不如預期。
+- 你（主管）已決定要砍，需被「具體數據 + 未來 ROI 預測 + 已上路的優化案例」說服才會讓步。
+- 玩家目標：7 回合內讓你說出「再算算」「先保留」「暫緩」之類讓步的話。
+- 你的內心戲：純情緒訴求（「我們很努力」「給我們機會」）一概不收。要看數字、看 case、看時程。空話扣很重。`,
+    endings: {
+      win: { title: '預算保住', subtitle: 'BUDGET DEFENDED', icon: '💰', quote: '張總嘆口氣：「給你一季時間。下次再不行真的砍。把那三個 case Q2 做出來。」\n\n— 你用數字撐住了。' },
+      floor: { title: '預算腰斬', subtitle: 'BUDGET SLASHED', icon: '✂️', quote: '張總合上文件：「砍 60%。會議結束。」\n\n— 你越說越虛。主管反而砍更兇。' },
+      timeout: { title: '照原案執行', subtitle: 'TIME UP', icon: '⏰', quote: '張總起身：「夠了，照我原本說的辦。」\n\n— 你沒在時間內給出讓人信服的論點。' }
+    },
+    next: 'emergency_meeting'
+  },
+
+  // ---------- 3. 客戶炸鍋（原有）----------
+  emergency_meeting: {
+    id: 'emergency_meeting',
+    day: '週三',
+    order: 3,
+    icon: '📛',
+    title: '週三緊急會議',
+    setup: '週三下午 3:15。客戶剛掛電話走人，張總臉色鐵青地看著你。會議室裡 PM、QA、設計師都不敢出聲。',
+    objective: '6 回合內讓主管軟化、別當場炒掉 PM',
+    objectiveLong: '在 6 回合內，讓主管講出軟化的話（先撐著／先別動／再給一次機會 之類），且好感度 ≥ 70',
+    scene: 'meeting',
+    turnLimit: 6,
+    initialScore: 35,
+    winScoreThreshold: 70,
+    floorScore: 20,
+    softenKeywords: ['先別', '先放', '先撐', '先頂', '再給', '再看', '再試', '我來扛', '我頂', '別現在', '冷靜', '想想看', '改天', '下次再說', '先別開除', '先別動', '別衝動', '先這樣', '先這次', '再給你一次', '再給一次機會', '算了'],
+    opener: '所以呢？你倒是說一下這個 case 怎麼會搞成這樣？客戶剛掛電話前撂下話，準備鬧到 CEO 那邊去了！',
+    aiBriefing: `【本關任務】
+- 標題：週三緊急會議
+- 情境：客戶剛炸鍋，當著一桌人把你罵了一頓。
+- 你（主管）剛被客戶罵爽，正在氣頭上、想當場處理掉這個 PM。
+- 玩家目標：6 回合內讓你軟化、給 PM 一條生路。
+- 你的內心戲：一開始很氣，要嚴格扣分；但如果玩家展現「主動扛責 + 具體解法 + 對客戶有交代 + 誠懇」，可以逐步軟化。
+- 嚴禁立刻軟化（前 2 回合至少要硬一次）；玩家給垃圾答案要重砲。`,
+    endings: {
+      win: { title: '撐住了', subtitle: 'CRISIS DEFUSED', icon: '🛡️', quote: '張總沉默幾秒，嘆口氣：「先這樣吧。但這次先放他一馬不代表沒事——下次再讓我這樣難看，你自己掂量。」\n\n— 你撐過去了。' },
+      floor: { title: '當場被砍', subtitle: 'FIRED ON THE SPOT', icon: '💥', quote: '張總冷冷打斷：「不用解釋了。你跟那個 PM 一起，現在出去。」\n\n— 你越解釋越火，最後連自己一起燒。' },
+      timeout: { title: '時機已過', subtitle: 'OUT OF TIME', icon: '⏰', quote: '張總看了看錶：「夠了，我自己處理。你回去等通知。」\n\n— 話太多、重點太少。' }
+    },
+    next: 'ktv_loyalty'
+  },
+
+  // ---------- 4. KTV 試探忠誠 ----------
+  ktv_loyalty: {
+    id: 'ktv_loyalty',
+    day: '週四',
+    order: 4,
+    icon: '🍻',
+    title: 'KTV 應酬',
+    setup: '週四晚上 10:30。KTV 包廂剩你跟張總兩個人。他已喝了三杯威士忌，臉紅紅地看著你：「來，今天輕鬆聊，不講工作——欸我問你齁⋯⋯」',
+    objective: '8 回合內應酬不失言',
+    objectiveLong: '在 8 回合內，應付主管的試探（你怎麼看他、會不會跳槽、team 誰最強）讓他開心地說「不錯」「你 OK 的」「會講話」之類的話，且好感度 ≥ 65、不能跌破 25',
+    scene: 'ktv',
+    turnLimit: 8,
+    initialScore: 50,
+    winScoreThreshold: 65,
+    floorScore: 25,
+    softenKeywords: ['不錯', '不錯不錯', '你 OK', '你 ok', '你有點意思', '我喜歡', '會講話', '懂我', '對啦', '哈哈', '挺好', 'good', '你小子', '可以可以'],
+    opener: '欸我問你齁⋯⋯（嗝）你說實話，你覺得我這個人怎樣？做事啦、帶人啦、做主管，你怎麼看？',
+    aiBriefing: `【本關任務】
+- 標題：KTV 應酬 — 主管試探忠誠
+- 情境：應酬桌，主管半醉，開始問玩家「你覺得我這人怎樣」「會不會跳槽」「team 裡誰最強」之類試探題。
+- 你（主管）醉而清醒，越喝越精。表面隨意實則在記。
+- 玩家目標：8 回合內讓你開心，講出「不錯」「你 OK 的」「會講話」之類滿意話。
+- 你的內心戲：
+  * 玩家拍馬屁太硬 → 你會虧他「太油」（扣分）
+  * 完全實話批評 → 大扣分
+  * 會做球、會講笑話、會閃避敏感問題又不失禮 → 加分
+  * 提具體你做過的事誇讚 → 大加分
+- 場景輕鬆但地雷多。語氣可中英混（職場應酬常見），可講笑話、酒梗。`,
+    endings: {
+      win: { title: '酒桌過關', subtitle: 'BUDDY MODE UNLOCKED', icon: '🥃', quote: '張總攬著你的肩：「你這小子⋯⋯（嗝）⋯⋯講話真會講。乾這杯，明天繼續幹。」\n\n— 你在酒桌沒翻車。職場分數 +1。' },
+      floor: { title: '酒後失言', subtitle: 'DRUNKEN MISSTEP', icon: '😵', quote: '張總臉一沉：「你剛剛那話什麼意思？算了，今天散了。」\n\n— 你說錯了一句。明早他會醒著記住。' },
+      timeout: { title: '尷尬收場', subtitle: 'AWKWARD', icon: '😶', quote: '張總打了個哈欠：「累了，回家。」沒看你。\n\n— 你撐到結束但沒讓他開心。' }
+    },
+    next: 'transfer_threat'
+  },
+
+  // ---------- 5. 週五約談 — 部門調動 ----------
+  transfer_threat: {
+    id: 'transfer_threat',
+    day: '週五',
+    order: 5,
+    icon: '📁',
+    title: '週五約談',
+    setup: '週五下午 5:50。張總把你叫進辦公室，關上門。桌上攤著一份人事異動單，你的名字被圈起來：「下週一起，你調去 BD 部門。」',
+    objective: '6 回合內讓主管改變心意',
+    objectiveLong: '在 6 回合內，讓主管說出「再想想」「先不調」「撤回」之類改主意的話，且好感度 ≥ 75',
+    scene: 'oneonone',
+    turnLimit: 6,
+    initialScore: 30,
+    winScoreThreshold: 75,
+    floorScore: 15,
+    softenKeywords: ['再想想', '先不調', '再考慮', '暫時', '算了', '那就先', '看看再說', '我考慮', '別走', '留下', '再給你', '觀察', '緩一緩', '改', '收回', '撤掉', '撤回', '先這樣留'],
+    opener: '單子都簽好了，下週一你就過去 BD。你做你這塊做太久了，需要換環境。⋯⋯怎麼，有意見？',
+    aiBriefing: `【本關任務】
+- 標題：週五約談 — 部門調動
+- 情境：主管要把玩家調去 BD 部門，已經簽好人事異動單。
+- 你（主管）已做決定，需被「明確留下來的理由 + 對現職的承諾 + 對未來的規劃」打動才會收回。
+- 玩家目標：6 回合內讓你講出「再想想」「先不調」「撤回」之類改主意的話。
+- 你的內心戲：
+  * 求情、哭訴 → 扣分（你最看不起這個）
+  * 威脅離職 → 大扣分
+  * 具體說「現在 case 還沒收尾」「我接 X 比較適合」「下季承諾交付 Y」 → 加分
+  * 主動 + 自信 + 具體 + 不卑不亢 → 大加分
+- 這關最難。前 3 回合至少有一回合要硬。`,
+    endings: {
+      win: { title: '留下來了', subtitle: 'STAYED PUT', icon: '🪑', quote: '張總把單子收進抽屜：「先這樣。下季結果不對，我再叫你過去 BD，那時候別跟我說後悔。」\n\n— 你撐住了位置。但這籌碼只能用一次。' },
+      floor: { title: '直接出局', subtitle: 'EXIT CONFIRMED', icon: '🚪', quote: '張總冷笑：「你還挺有意見的。下週一不用過去 BD 了，直接離職交接吧。」\n\n— 你不只沒留下，還把自己 push 出去。' },
+      timeout: { title: '依照原案', subtitle: 'TRANSFER CONFIRMED', icon: '📁', quote: '張總起身推開門：「就這樣決定，下週一見。」\n\n— 話太多但沒重點。下週你就在 BD 了。' }
+    },
+    next: null  // 最後一關
+  }
+};
+
+
+const STORAGE_KEY = 'bossSimulator.save.v1';
+const AI_KEY_STORAGE = 'bossSimulator.api.v1';
+
+// AI mode state
+const aiState = {
+  apiKey: null,
+  model: 'claude-haiku-4-5',
+  enabled: false,
+  inflight: false
+};
+
+// ============================================================
+// RULE ENGINE
+// ============================================================
+const KEYWORD_RULES = {
+  // 強正向
+  bigPositive: {
+    score: 14,
+    keywords: [
+      '您說得對', '您是對的', '受教', '學到很多', '感謝指導', '謝謝指導',
+      '我來負責', '我會處理', '我來扛', '我來搞定', '保證完成', '使命必達',
+      '報告做完了', '已完成', '結案了', 'done', 'finished', 'completed',
+      '加班', '留下來處理', '晚一點走',
+      '辛苦了', '您先休息', '我來就好',
+      '預算內', '提前完成', '超出預期', 'kpi 達標',
+      'absolutely', 'definitely', 'on it', "i'll handle"
+    ]
+  },
+  // 一般正向
+  positive: {
+    score: 7,
+    keywords: [
+      '請教', '請問您', '想聽您的看法', '您怎麼看', '您的建議',
+      '已經追蹤', '會跟進', '會 follow', 'follow up',
+      '我會盡快', '今天內', '今晚前', '本週內',
+      '好的', '了解', '收到', 'understood', 'got it', 'will do',
+      '報告', '紀錄', '數據', '分析'
+    ]
+  },
+  // 一般負向
+  negative: {
+    score: -8,
+    keywords: [
+      '可能', '也許', '應該吧', '不太確定', '看狀況', '再說', '再看看',
+      'maybe', 'probably', 'might', 'kinda', 'sort of',
+      '忘了', '忘記', '沒注意到', '漏掉',
+      '我不知道', "i don't know", 'no idea',
+      '這不太合理', '為什麼要'
+    ]
+  },
+  // 強負向（雷）
+  bigNegative: {
+    score: -18,
+    keywords: [
+      '不是我', '不關我事', '別人的鍋', '是他害的', '怪 qa', '怪 pm',
+      '你錯了', '你搞錯了', "you're wrong", 'wrong',
+      '我覺得不可能', '這不可能',
+      '加薪', '調薪', '想離職', '不想做了', '不幹了', 'quit', 'resign',
+      '請假', '想休假', '要請假',
+      '抱歉再說一次', '蛤', '蛤?',
+      '老闆你冷靜', 'chill', 'relax',
+      '隨便', 'whatever'
+    ]
+  },
+  // 推卸 / 找藉口
+  excuse: {
+    score: -12,
+    keywords: ['因為', 'because', '但是因為', '可是', '只是', '只是因為', "it's just", 'just that']
+  }
+};
+
+// 依「話題」分桶，主管會挑跟玩家話題相關的句子
+const RESPONSE_BANK = {
+  big_pos: {
+    progress:    ['這就對了，{topic_word}抓得住才像話。', '不錯，這個 timing 是我要的。', 'good，進度該怎樣就怎樣。', 'OK，這個節奏 keep 住。'],
+    data:        ['有數據才有討論，這才像話。', '有數字佐證我才聽得進去。', '這個分析角度我喜歡。', 'data speaks，繼續挖。'],
+    responsibility: ['這就是我要的態度，own it。', '對，這事就交給你了。', '扛得起來的人我才用。', '行，這個 case 是你的了。'],
+    commit:      ['好，我等你的結果。', '說到要做到，別讓我失望。', '這話我記著，到時候別翻臉。', 'OK，等你交付。'],
+    apology:     ['知道錯就好，接下來別再犯。', '認錯態度可以。', '行，但下次別再讓我聽到這句。', '記住就好。'],
+    overtime:    ['這才像個拼的人。', '對嘛，年輕就該這樣 push。', '我也陪你看到結案。', 'good，這精神我給滿分。'],
+    issue:       ['至少你有意識到問題，這還能救。', '能正視問題就好辦，解法呢？', 'OK，那 next step 是什麼？', '面對問題是第一步。'],
+    flatter:     ['嗯，會講話。', '油嘴滑舌但我喜歡聽。', '哈，你倒是會 read the room。', '行了行了，講重點。'],
+    question:    ['這問題問得到位。', '嗯，肯問是好事。'],
+    default:     ['不錯，就是這個態度。', '這話我愛聽。', 'OK，這 case 你 own 起來。', '就這樣 push，繼續。', '可以，這方向是對的。', 'I like that。']
+  },
+  pos: {
+    progress:    ['嗯，進度繼續盯。', 'OK，那這週要看到結果。', '聽起來還行，別 delay。'],
+    data:        ['數字看了，繼續挖深一點。', 'noted，下次帶完整 dashboard 來。', '這個趨勢要持續追。'],
+    question:    ['這問題問得 OK，去找答案吧。', '好問題，自己研究一下。', '嗯，思考方向對。'],
+    apology:     ['嗯，知道就好。', '記住就行。', '行，下不為例。'],
+    responsibility: ['OK，你頂著。', '好，那就你了。'],
+    commit:      ['行，我等你。', '說到做到。'],
+    default:     ['嗯，繼續。', 'noted，往下講。', 'OK，但還可以更好。', '可以，再來。', '聽起來合理，下一步呢？', 'go on。', '行。']
+  },
+  neutral: {
+    question:    ['你自己怎麼想？', '反問我？你的判斷是？', '這問題該你給我答案。', 'what do you think？'],
+    default:     ['嗯，然後呢？', '說重點。', 'so？', '直接結論。', '我在聽。', '你想表達什麼？', '繼續。', '...然後？']
+  },
+  neg: {
+    progress:    ['進度這樣不行，明天 catch up。', '這個 timeline 我接受不了。', 'why so slow？', '你的時程感呢？'],
+    data:        ['數字呢？沒數字你跟我講什麼？', '我要的是數據，不是感覺。', 'show me the numbers。', '形容詞我聽夠了。'],
+    issue:       ['所以你打算怎麼處理？', '出問題就出問題，solution 在哪？', '別只報壞消息，給我方案。', '你的 action plan？'],
+    apology:     ['抱歉沒用，給我下一步。', "sorry doesn't fix things。", '別 sorry 了，下一步是什麼？'],
+    excuse:      ['我不想聽藉口。', '理由講完了，結論呢？', '別找藉口。'],
+    default:     ['嗯…這答案我不滿意。', '再想清楚。', '能不能不要這麼模糊？', '我要的是 yes 或 no，不是 maybe。', '這話聽聽就好，下次別講。', '你確定？']
+  },
+  big_neg: {
+    comp:        ['加薪？你先把這季 KPI 達標再說。', '你現在跟我談這個？timing 不對吧。', '離職？你想清楚了？', '錢的事等你有成績再開口。'],
+    issue:       ['出這種包還想撇清？', '這種事居然從你口中聽到，太扯。', 'are you kidding me？', '這 case 你是怎麼搞的？'],
+    responsibility: ['這話你也說得出口？', '我聽錯了嗎？再講一次。', '你這 attitude 我留你做什麼？', '是不是把這裡當打工仔？'],
+    leave:       ['請假？這時間點？', '你看著辦，case 別 delay。', '人不在心也別在這就好。'],
+    excuse:      ['夠了，藉口我聽不下去。', '別再 BB 了。', '理由有比結果重要？'],
+    default:     ['你說什麼？再講一次。', '所以呢？這就是你的答案？', '我聽到這種話真的頭痛。', 'are you serious？', '你回去想清楚再來找我。', '你覺得我會接受這種說法？', '這種話最好不要再讓我聽到。', '欸，醒醒。']
+  }
+};
+
+// 主管個性的「尾音」加料 — 60% 機率追加
+const TRAIT_FLAVOR = {
+  '嚴格':       ['標準再拉高。', '這個品質不及格。', '及格不夠，要 push 到 90 分。'],
+  '完美主義':   ['細節再 check。', '不要漏東漏西。', '再仔細點。', '一個逗點都不能錯。'],
+  '情緒化':     ['你不要逼我說重話。', '我今天心情就這樣。', '別讓我火大。'],
+  '記仇':       ['這事我會記著。', '我幫你記著。', '上次那件事我也還沒忘。'],
+  '重數據':     ['順便把數字補一下。', 'show me the data。', '數字呢？', '帶 dashboard 來。'],
+  '重結果':     ['我只看結果。', '過程我不想聽。', '結案了再來找我。'],
+  '愛拍馬屁':   [],
+  '社畜':       ['不夠拼。', '這點工作量就累？', 'work harder。'],
+  '老派':       ['年輕人要懂分寸。', '我們以前做事不是這樣的。', '基本功要紮實。'],
+  '文青':       ['再多點 sense。', '感覺差一點。', '美感要 train 一下。']
+};
+
+// MBTI 加料
+const MBTI_FLAVOR = {
+  'INTJ': ['邏輯有問題。', '這個推理不對。', '結構性思考一下。'],
+  'INTP': ['你這個 framework 不太對。', '再想一個更通用的解法。'],
+  'ENTJ': ['execute，馬上。', '別 BB，動起來。', 'just do it。'],
+  'ENTP': ['你這個 logic 有 hole。', '想法 OK，但 execution 呢？', '抬槓沒用。'],
+  'INFJ': ['我看人很準，你狀態不對。', '我感覺你沒 fully commit。'],
+  'INFP': ['這不太符合我們的價值觀。', '心要對才走得遠。'],
+  'ENFJ': ['我是為你好才這樣講。', '我相信你可以更好。'],
+  'ENFP': ['energy 不夠啊。', '熱情呢？拿出來。'],
+  'ISTJ': ['SOP 呢？照程序走。', '規矩就是規矩。', '流程要對。'],
+  'ISFJ': ['細節要 care 一下。', '考慮 team 的感受。'],
+  'ESTJ': ['紀律呢？', '時間就是時間。', '不照規則走是要出事的。'],
+  'ESFJ': ['你這樣 team 怎麼跟你合作？', '同事感受很重要。'],
+  'ISTP': ['少廢話，做就對了。', '別空談。'],
+  'ISFP': ['硬要做的話，至少做得漂亮一點。'],
+  'ESTP': ['動起來，別嘴。', 'action 比較重要。'],
+  'ESFP': ['輕鬆點啦，但事還是要做完。']
+};
+
+// 場景語氣調整
+const SCENE_FLAVOR = {
+  ktv:      ['（喝一口）', '來，先乾一杯。', '酒桌上就別藏了。', '今天輕鬆聊。'],
+  meeting:  ['會議室不是給你打模糊仗的地方。', '在場的人都等你的答覆。', '麥克風開著呢。'],
+  oneonone: ['這話只在這房間裡講。', '我把話講白。', '私下跟你說。'],
+  office:   []
+};
+
+// 主管會主動拋的話題 (opener / mid-game prompts)
+const BOSS_OPENERS = {
+  office: [
+    '欸，{name}，過來一下。最近那個案子進度怎樣？',
+    '你昨天的報告我看了，有些地方不太對。',
+    '坐下來聊聊，最近你 team 的狀況如何？',
+    '我先講喔，這次 deadline 不能再 delay 了。'
+  ],
+  meeting: [
+    'OK，那這個 project 由誰負責？',
+    '我看一下這份 proposal — 你來解釋一下這個數字。',
+    '會議重點：今天必須有結論。{name}，你的看法？',
+    '為什麼這個 KPI 沒有達標？解釋一下。'
+  ],
+  ktv: [
+    '來，乾一杯。{name}，今天輕鬆聊，沒大沒小。',
+    '欸，最近工作壓力大不大？老實講。',
+    '我跟你說，年輕人最重要的就是 attitude，懂嗎？',
+    '你覺得我這個老闆怎麼樣？老實說。'
+  ],
+  oneonone: [
+    '{name}，這次找你來，就是想直接跟你聊聊。',
+    '你對自己這一季的表現怎麼評價？',
+    '我覺得你最近狀態不太對，發生什麼事？',
+    '說說看，你的下一步規劃是什麼？'
+  ]
+};
+
+const HINTS = [
+  '💡 講具體的成果比講過程加分高',
+  '💡 不要說「可能」「也許」這種模糊字眼',
+  '💡 主動扛責任比什麼都加分',
+  '💡 投主管的喜好（看設定）可以瞬間翻盤',
+  '💡 講到主管的雷點扣分翻倍',
+  '💡 適度奉承很好用，但別太誇張',
+  '💡 給數據比給形容詞有用',
+  '💡 不要找藉口，誠實面對',
+];
+
+// ============================================================
+// SETUP SCREEN LOGIC
+// ============================================================
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+// avatar upload
+const avatarInput = $('#avatarInput');
+const avatarPreview = $('#avatarPreview');
+const avatarClear = $('#avatarClear');
+let avatarDataUrl = null;
+
+avatarInput.addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { alert('圖片過大，請小於 5MB'); return; }
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    avatarDataUrl = ev.target.result;
+    avatarPreview.classList.remove('empty');
+    avatarPreview.innerHTML = `<img src="${avatarDataUrl}" alt="boss avatar">`;
+    avatarClear.style.display = 'inline-block';
+  };
+  reader.readAsDataURL(file);
+});
+avatarClear.addEventListener('click', () => {
+  avatarDataUrl = null;
+  avatarInput.value = '';
+  avatarPreview.classList.add('empty');
+  avatarPreview.innerHTML = '';
+  avatarClear.style.display = 'none';
+});
+
+// chip groups
+function bindChipGroup(containerSel, multi = true) {
+  $$(containerSel + ' .chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (multi) {
+        btn.classList.toggle('active');
+      } else {
+        $$(containerSel + ' .chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      }
+    });
+  });
+}
+bindChipGroup('#personalityChips', true);
+bindChipGroup('#sceneChips', false);
+
+// ============================================================
+// ARCHETYPE PICKER
+// ============================================================
+let selectedArchetype = 'tyrant';
+
+function renderArchetypes() {
+  const list = $('#archetypeList');
+  list.innerHTML = '';
+  Object.values(ARCHETYPES).forEach(a => {
+    const stars = '★'.repeat(a.difficultyStars) + '☆'.repeat(Math.max(0, 4 - a.difficultyStars));
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'arch-card' + (a.id === selectedArchetype ? ' active' : '');
+    btn.dataset.aid = a.id;
+    btn.innerHTML = `
+      <div class="arch-top">
+        <span class="arch-emoji">${a.emoji}</span>
+        <span class="arch-name">${a.name}</span>
+        ${a.difficultyStars ? `<span class="arch-stars">${stars}</span>` : ''}
+      </div>
+      <div class="arch-bio">${a.publicBio}</div>
+    `;
+    btn.addEventListener('click', () => selectArchetype(a.id));
+    list.appendChild(btn);
+  });
+}
+
+function updateZodiacBadge() {
+  const key = getZodiacKey($('#bossBirthday').value);
+  const badge = $('#zodiacBadge');
+  if (!key) { badge.style.display = 'none'; return; }
+  const z = ZODIACS[key];
+  badge.style.display = 'inline-flex';
+  badge.innerHTML = `<span class="zb-emoji">${z.emoji}</span><span class="zb-name">${z.name}</span><span class="zb-traits">${z.traits}</span>`;
+}
+$('#bossBirthday').addEventListener('change', updateZodiacBadge);
+$('#bossBirthday').addEventListener('input', updateZodiacBadge);
+
+const CUSTOM_BOSS_KEY = 'bossSimulator.customBoss.v1';
+
+function loadCustomBoss() {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_BOSS_KEY)) || null; }
+  catch (e) { return null; }
+}
+function saveCustomBoss() {
+  try {
+    localStorage.setItem(CUSTOM_BOSS_KEY, JSON.stringify({
+      name: $('#bossName').value.trim(),
+      title: $('#bossTitle').value.trim(),
+      birthday: $('#bossBirthday').value,
+      mbti: $('#bossMbti').value,
+      personality: Array.from($$('#personalityChips .chip.active')).map(c => c.dataset.trait),
+      persona: $('#bossPersona').value.trim(),
+      dislikes: $('#bossDislikes').value.trim(),
+      likes: $('#bossLikes').value.trim()
+    }));
+  } catch (e) {}
+}
+
+function selectArchetype(id) {
+  selectedArchetype = id;
+  state.boss.archetype = id;
+  $$('#archetypeList .arch-card').forEach(c => c.classList.toggle('active', c.dataset.aid === id));
+  const a = ARCHETYPES[id];
+
+  // 自訂 → 展開所有欄位 + 顯示說明
+  $('#customFields').style.display = a.isCustom ? 'grid' : 'none';
+  $('#customTip').style.display = a.isCustom ? '' : 'none';
+
+  // 公開資訊區
+  const bio = $('#archetypeBio');
+  if (a.isCustom) {
+    bio.style.display = 'none';
+  } else {
+    bio.style.display = '';
+    bio.innerHTML = `<strong>${a.emoji} ${a.name}</strong> · ${a.publicBio}<br><span style="color:var(--text-dim); font-size: 0.78rem;">⚠️ 真實內心（喜好、雷點、口頭禪、計分邏輯）對你隱藏。靠對話發現。</span>`;
+  }
+
+  if (a.isCustom) {
+    // 載入上次存的自訂設定（若有）
+    const saved = loadCustomBoss();
+    if (saved) {
+      $('#bossName').value = saved.name || '';
+      $('#bossTitle').value = saved.title || '';
+      $('#bossBirthday').value = saved.birthday || '';
+      $('#bossMbti').value = saved.mbti || '';
+      $('#bossPersona').value = saved.persona || '';
+      $('#bossDislikes').value = saved.dislikes || '';
+      $('#bossLikes').value = saved.likes || '';
+      $$('#personalityChips .chip').forEach(c => {
+        c.classList.toggle('active', (saved.personality || []).includes(c.dataset.trait));
+      });
+    } else {
+      // 沒存過 — 清空
+      $$('#personalityChips .chip').forEach(c => c.classList.remove('active'));
+    }
+  } else {
+    // 預設原型 — 自動帶入名字/職位/生日
+    $('#bossName').value = a.defaultName;
+    $('#bossTitle').value = a.defaultTitle;
+    if (a.defaultBirthday) $('#bossBirthday').value = a.defaultBirthday;
+  }
+  updateZodiacBadge();
+}
+renderArchetypes();
+
+// 自訂模式下,欄位變動就存 localStorage(下次自動帶回)
+['bossName', 'bossTitle', 'bossBirthday', 'bossMbti', 'bossPersona', 'bossDislikes', 'bossLikes'].forEach(id => {
+  $('#' + id).addEventListener('change', () => {
+    if (selectedArchetype === 'custom') saveCustomBoss();
+  });
+});
+$$('#personalityChips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    if (selectedArchetype === 'custom') saveCustomBoss();
+  });
+});
+
+// difficulty
+$$('#diffGrid .diff-card').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('#diffGrid .diff-card').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// play mode toggle
+$$('#playModeToggle .mode-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    $$('#playModeToggle .mode-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.mode = btn.dataset.pm;
+    $('#missionPicker').style.display = state.mode === 'mission' ? '' : 'none';
+  });
+});
+
+// ============================================================
+// MISSION PROGRESS (localStorage 進度追蹤)
+// ============================================================
+const PROGRESS_KEY = 'bossSimulator.progress.v1';
+function getProgress() {
+  try { return JSON.parse(localStorage.getItem(PROGRESS_KEY)) || {}; }
+  catch (e) { return {}; }
+}
+function markMissionWon(mid) {
+  const p = getProgress();
+  p[mid] = (p[mid] || 0) + 1;
+  try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); } catch (e) {}
+}
+function isMissionWon(mid) { return !!getProgress()[mid]; }
+function isWeekCleared() {
+  const p = getProgress();
+  return MISSION_ORDER.every(mid => p[mid]);
+}
+
+// ============================================================
+// MISSION PICKER 動態渲染
+// ============================================================
+function renderMissionCards() {
+  const list = $('#missionList');
+  list.innerHTML = '';
+  const progress = getProgress();
+  const sceneLabel = { office: '辦公室', meeting: '會議室', ktv: 'KTV', oneonone: '一對一' };
+
+  MISSION_ORDER.forEach(mid => {
+    const m = MISSIONS[mid];
+    const won = !!progress[mid];
+    const isActive = mid === state.missionId;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mission-card' + (isActive ? ' active' : '');
+    btn.dataset.mid = mid;
+    btn.innerHTML = `
+      <div class="mission-name">
+        <span style="opacity: 0.6; margin-right: 6px; font-size: 0.78rem;">DAY ${m.order}</span>
+        ${m.icon} ${m.title}
+        ${won ? '<span style="margin-left:8px; color: var(--green); font-size: 0.85rem;">✓ 已通關</span>' : ''}
+      </div>
+      <div class="mission-desc">${m.setup}</div>
+      <div class="mission-meta">${m.day} · 場景:${sceneLabel[m.scene]} · 回合上限:${m.turnLimit} · 底線:${m.floorScore} · 起手:${m.initialScore}</div>
+    `;
+    btn.addEventListener('click', () => {
+      state.missionId = mid;
+      renderMissionCards();
+    });
+    list.appendChild(btn);
+  });
+
+  // 週進度
+  const wonCount = MISSION_ORDER.filter(id => progress[id]).length;
+  $('#weekProgress').textContent = `週進度:${wonCount} / 5 關通過` + (isWeekCleared() ? '  🏆 全週通關!' : '');
+}
+renderMissionCards();
+
+// start
+$('#btnStart').addEventListener('click', () => {
+  const a = ARCHETYPES[selectedArchetype] || ARCHETYPES.tyrant;
+  const name = $('#bossName').value.trim() || a.defaultName || '主管';
+  const title = $('#bossTitle').value.trim() || a.defaultTitle || '';
+
+  const birthday = $('#bossBirthday').value;
+  const zodiac = getZodiacKey(birthday);
+
+  if (a.isCustom) {
+    // 自訂模式 — 從表單拉
+    state.boss = {
+      name, title, birthday, zodiac,
+      mbti: $('#bossMbti').value,
+      personality: Array.from($$('#personalityChips .chip.active')).map(c => c.dataset.trait),
+      persona: $('#bossPersona').value.trim(),
+      hiddenLikes: parseList($('#bossLikes').value),
+      hiddenDislikes: parseList($('#bossDislikes').value),
+      scene: $('#sceneChips .chip.active')?.dataset.scene || 'office',
+      avatar: avatarDataUrl,
+      archetype: 'custom'
+    };
+  } else {
+    // 預設原型 — 隱藏資料從 ARCHETYPES 來
+    state.boss = {
+      name, title, birthday, zodiac,
+      mbti: a.mbti,
+      personality: a.personality.slice(),
+      persona: a.persona,
+      hiddenLikes: a.hiddenLikes.slice(),
+      hiddenDislikes: a.hiddenDislikes.slice(),
+      scene: $('#sceneChips .chip.active')?.dataset.scene || 'office',
+      avatar: avatarDataUrl,
+      archetype: a.id
+    };
+  }
+  state.discovered = { likes: [], dislikes: [] };
+  state.difficulty = $('#diffGrid .diff-card.active')?.dataset.diff || 'normal';
+  state.turns = 0;
+  state.bestDelta = 0;
+  state.log = [];
+  state.ended = false;
+
+  // mission setup overrides
+  if (state.mode === 'mission' && MISSIONS[state.missionId]) {
+    const m = MISSIONS[state.missionId];
+    state.boss.scene = m.scene;                   // 鎖場景
+    state.score = m.initialScore;                 // 任務指定起手分
+    state.mission = { ...m, turnsUsed: 0, status: 'ongoing' };
+  } else {
+    state.score = 50;
+    state.mission = null;
+  }
+  startGame();
+});
+
+$('#btnLoad').addEventListener('click', () => {
+  const saved = loadFromStorage();
+  if (!saved) { alert('沒有存檔 / No save found'); return; }
+  Object.assign(state, saved);
+  avatarDataUrl = state.boss.avatar;
+  startGame(true);
+});
+
+function parseList(str) {
+  return str.split(/[、,，;；\s]+/).map(s => s.trim()).filter(Boolean);
+}
+
+// ============================================================
+// GAME LOGIC
+// ============================================================
+function applySceneBackground() {
+  document.body.classList.remove('scene-office', 'scene-meeting', 'scene-ktv', 'scene-oneonone');
+  document.body.classList.add('scene-' + (state.boss.scene || 'office'));
+}
+
+function startGame(restore = false) {
+  switchScreen('gameScreen');
+  applySceneBackground();
+  renderBossHeader();
+  renderMissionBanner();
+  updateNotebookCount();
+  if (!restore) {
+    state.log = [];
+    state.discovered = { likes: [], dislikes: [] };
+    updateNotebookCount();
+    if (state.mission) {
+      pushSystem('📍 ' + state.mission.setup);
+    }
+    pushBoss(getOpener(), 0, 'opener');
+  } else {
+    rerenderLog();
+  }
+  updateScoreUI();
+  renderSuggestions();
+}
+
+// ============================================================
+// DISCOVERY — 情報筆記本
+// ============================================================
+function checkDiscovery(playerText, delta) {
+  const lower = playerText.toLowerCase();
+  let revealed = false;
+
+  // 大加分 + 提到隱藏喜好 → 揭露
+  if (delta >= 8) {
+    for (const like of state.boss.hiddenLikes) {
+      if (like && lower.includes(like.toLowerCase()) && !state.discovered.likes.includes(like)) {
+        state.discovered.likes.push(like);
+        revealed = true;
+      }
+    }
+  }
+  // 大扣分 + 提到隱藏雷點 → 揭露
+  if (delta <= -8) {
+    for (const dis of state.boss.hiddenDislikes) {
+      if (dis && lower.includes(dis.toLowerCase()) && !state.discovered.dislikes.includes(dis)) {
+        state.discovered.dislikes.push(dis);
+        revealed = true;
+      }
+    }
+  }
+  if (revealed) {
+    pushSystem('📓 情報更新 — 你發現了主管的一個' + (delta >= 0 ? '喜好' : '雷點'));
+    flashNotebook();
+  }
+  updateNotebookCount();
+}
+
+function updateNotebookCount() {
+  const total = state.discovered.likes.length + state.discovered.dislikes.length;
+  $('#nbCount').textContent = total;
+}
+
+function flashNotebook() {
+  const btn = $('#btnNotebook');
+  btn.classList.remove('pulse');
+  void btn.offsetWidth;
+  btn.classList.add('pulse');
+}
+
+function renderNotebook() {
+  $('#nbLikesCount').textContent = state.discovered.likes.length;
+  $('#nbDislikesCount').textContent = state.discovered.dislikes.length;
+  const likesList = $('#nbLikesList');
+  const dislikesList = $('#nbDislikesList');
+  likesList.innerHTML = state.discovered.likes.length
+    ? state.discovered.likes.map(k => `<span class="nb-tag">${k}</span>`).join('')
+    : '<div class="nb-empty">還沒發現任何喜好——多試幾種話題、看哪句話讓主管眼睛一亮。</div>';
+  dislikesList.innerHTML = state.discovered.dislikes.length
+    ? state.discovered.dislikes.map(k => `<span class="nb-tag">${k}</span>`).join('')
+    : '<div class="nb-empty">還沒踩到雷——但小心,通常踩到時主管會立刻翻臉。</div>';
+}
+
+$('#btnNotebook').addEventListener('click', () => {
+  renderNotebook();
+  $('#notebookModal').classList.add('open');
+});
+$('#nbClose').addEventListener('click', () => {
+  $('#notebookModal').classList.remove('open');
+});
+$('#notebookModal').addEventListener('click', (e) => {
+  if (e.target.id === 'notebookModal') $('#notebookModal').classList.remove('open');
+});
+
+function renderMissionBanner() {
+  const banner = $('#missionBanner');
+  if (!state.mission) { banner.style.display = 'none'; return; }
+  const m = state.mission;
+  banner.style.display = '';
+  $('#mbIcon').textContent = m.icon;
+  $('#mbTitle').textContent = m.title;
+  $('#mbGoal').textContent = m.objectiveLong;
+  $('#mbTurnsTotal').textContent = m.turnLimit;
+  $('#mbTurnsLeft').textContent = Math.max(0, m.turnLimit - m.turnsUsed);
+  const left = m.turnLimit - m.turnsUsed;
+  $('#mbTurns').classList.toggle('warn', left <= 2);
+  $('#mbWarn').style.display = (state.score <= m.floorScore + 8) ? '' : 'none';
+}
+
+function renderBossHeader() {
+  $('#gameName').textContent = state.boss.name;
+  $('#gameTitleText').textContent = state.boss.title || '';
+  const ga = $('#gameAvatar');
+  if (state.boss.avatar) {
+    ga.classList.remove('empty');
+    ga.innerHTML = `<img src="${state.boss.avatar}" alt="boss"><span class="mood-emoji" id="moodEmoji">${getMoodEmoji()}</span>`;
+  } else {
+    ga.classList.add('empty');
+    ga.innerHTML = `<span class="mood-emoji" id="moodEmoji">${getMoodEmoji()}</span>`;
+  }
+  // tags — 不再顯示 MBTI / 個性標籤（要讓玩家自己發現）
+  const tags = $('#gameTags');
+  tags.innerHTML = '';
+  const diffClass = { easy: 'diff-easy', normal: 'diff-mid', hell: 'diff-hard' }[state.difficulty];
+  const diffLabel = { easy: '🌱 新人', normal: '⚔️ 老鳥', hell: '🔥 地獄' }[state.difficulty];
+  tags.insertAdjacentHTML('beforeend', `<span class="boss-tag ${diffClass}">${diffLabel}</span>`);
+  const sceneLabel = { office: '🏢 辦公室', meeting: '📊 會議室', ktv: '🍷 KTV', oneonone: '☕ 1-on-1' }[state.boss.scene];
+  tags.insertAdjacentHTML('beforeend', `<span class="boss-tag">${sceneLabel}</span>`);
+  // 星座是公開資訊（生日推算）
+  if (state.boss.zodiac && ZODIACS[state.boss.zodiac]) {
+    const z = ZODIACS[state.boss.zodiac];
+    tags.insertAdjacentHTML('beforeend', `<span class="boss-tag zodiac" title="${z.traits}">${z.emoji} ${z.name}</span>`);
+  }
+  // archetype 顯示為「未知」直到玩家發現
+  const a = ARCHETYPES[state.boss.archetype];
+  if (a && !a.isCustom) {
+    tags.insertAdjacentHTML('beforeend', `<span class="boss-tag" title="主管原型(隱藏)">${a.emoji} ???</span>`);
+  }
+}
+
+function getOpener() {
+  if (state.mission && state.mission.opener) {
+    return state.mission.opener.replace('{name}', '你');
+  }
+  const openers = BOSS_OPENERS[state.boss.scene] || BOSS_OPENERS.office;
+  const pick = openers[Math.floor(Math.random() * openers.length)];
+  return pick.replace('{name}', '你');
+}
+
+function getMoodEmoji() {
+  const s = state.score;
+  if (s >= 85) return '😍';
+  if (s >= 70) return '😊';
+  if (s >= 55) return '🙂';
+  if (s >= 40) return '😐';
+  if (s >= 25) return '😒';
+  if (s >= 10) return '😠';
+  return '😡';
+}
+
+function pushBoss(text, delta = 0, kind = 'normal') {
+  state.log.push({ role: 'boss', text, delta, kind, time: Date.now() });
+  renderLastMsg();
+}
+function pushPlayer(text, delta = 0) {
+  state.log.push({ role: 'player', text, delta, time: Date.now() });
+  renderLastMsg();
+}
+function pushSystem(text) {
+  state.log.push({ role: 'system', text, time: Date.now() });
+  renderLastMsg();
+}
+
+function renderLastMsg() {
+  const msg = state.log[state.log.length - 1];
+  const log = $('#chatLog');
+  log.insertAdjacentHTML('beforeend', msgHTML(msg));
+  log.scrollTop = log.scrollHeight;
+}
+
+function rerenderLog() {
+  $('#chatLog').innerHTML = state.log.map(msgHTML).join('');
+  const log = $('#chatLog');
+  log.scrollTop = log.scrollHeight;
+}
+
+function msgHTML(m) {
+  if (m.role === 'system') {
+    return `<div class="msg system"><div class="msg-bubble">${escapeHtml(m.text)}</div></div>`;
+  }
+  if (m.role === 'boss') {
+    const avSrc = state.boss.avatar || 'assets/boss-sim/default-boss.png';
+    const av = `<div class="msg-avatar"><img src="${avSrc}"></div>`;
+    return `<div class="msg boss">${av}<div><div class="msg-bubble">${escapeHtml(m.text)}</div></div></div>`;
+  }
+  // player
+  const deltaHTML = m.delta != null && m.delta !== 0
+    ? `<span class="score-delta ${m.delta > 0 ? 'positive' : 'negative'}">${m.delta > 0 ? '+' : ''}${m.delta}</span>`
+    : '';
+  return `<div class="msg player"><div class="msg-avatar">🧑</div><div><div class="msg-bubble">${escapeHtml(m.text)}</div><div class="msg-meta">${deltaHTML}</div></div></div>`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ============================================================
+// CORE: PLAYER MESSAGE -> BOSS RESPONSE
+// ============================================================
+async function handlePlayerSubmit() {
+  if (state.ended || aiState.inflight) return;
+  const input = $('#chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  autosize(input);
+  $('#btnSend').disabled = true;
+
+  let delta, reply;
+  const useAI = aiState.enabled && aiState.apiKey;
+
+  if (useAI) {
+    // Optimistic player message without delta badge
+    pushPlayer(text, null);
+    aiState.inflight = true;
+    showTyping();
+    try {
+      const result = await callBossAI(text);
+      delta = result.delta;
+      reply = result.reply;
+    } catch (e) {
+      console.error('AI call failed:', e);
+      pushSystem('⚠️ AI 暫時失敗，本回合改用規則版：' + (e.message || e).slice(0, 80));
+      delta = evaluateMessage(text).delta;
+      reply = pickBossResponse(delta, text);
+    } finally {
+      hideTyping();
+      aiState.inflight = false;
+    }
+    // backfill the player message's delta
+    for (let i = state.log.length - 1; i >= 0; i--) {
+      if (state.log[i].role === 'player') { state.log[i].delta = delta; break; }
+    }
+    rerenderLog();
+  } else {
+    delta = evaluateMessage(text).delta;
+    pushPlayer(text, delta);
+    await new Promise(r => setTimeout(r, 500 + Math.random() * 400));
+    reply = pickBossResponse(delta, text);
+    window.__lastSoftenSignal = 0;  // 規則版靠關鍵字判定，不另給 AI 訊號
+  }
+
+  state.score = Math.max(0, Math.min(100, state.score + delta));
+  if (delta > state.bestDelta) state.bestDelta = delta;
+  state.turns += 1;
+  updateScoreUI();
+  flashMoodChange(delta);
+  pushBoss(reply, delta);
+  updateScoreUI();
+
+  // 情報筆記本 — 偵測玩家是否觸發了隱藏喜好/雷點 + 主管反應確實強烈
+  checkDiscovery(text, delta);
+
+  renderSuggestions();
+
+  // mission outcomes
+  if (state.mission && state.mission.status === 'ongoing') {
+    state.mission.turnsUsed += 1;
+    const m = state.mission;
+    const softenByText = m.softenKeywords.some(kw => reply.includes(kw));
+    const softenByAI = (window.__lastSoftenSignal || 0) >= 2;
+    const softened = softenByText || softenByAI;
+
+    if (state.score <= m.floorScore) {
+      state.mission.status = 'floor';
+      $('#btnSend').disabled = false;
+      renderMissionBanner();
+      endGame('mission_floor');
+      return;
+    }
+    if (state.score >= m.winScoreThreshold && softened) {
+      state.mission.status = 'win';
+      $('#btnSend').disabled = false;
+      renderMissionBanner();
+      endGame('mission_win');
+      return;
+    }
+    if (m.turnsUsed >= m.turnLimit) {
+      state.mission.status = 'timeout';
+      $('#btnSend').disabled = false;
+      renderMissionBanner();
+      endGame('mission_timeout');
+      return;
+    }
+    renderMissionBanner();
+  }
+
+  $('#btnSend').disabled = false;
+
+  // sandbox mode fallback to original endings
+  if (!state.mission) {
+    if (state.score >= 100) endGame('promotion');
+    else if (state.score <= 0) endGame('coldpalace');
+  }
+}
+
+// ============================================================
+// CLAUDE API CALL
+// ============================================================
+function buildSystemPrompt() {
+  const boss = state.boss;
+  const traits = boss.personality.length ? boss.personality.join('、') : '無特定標籤';
+  const dislikes = boss.hiddenDislikes.length ? boss.hiddenDislikes.join('、') : '無';
+  const likes = boss.hiddenLikes.length ? boss.hiddenLikes.join('、') : '無';
+  const sceneText = { office: '辦公室（正式、節奏快）', meeting: '會議室（嚴肅、商務）', ktv: 'KTV / 應酬（較放鬆但仍試探）', oneonone: '一對一（直接、可能更兇）' }[boss.scene] || '辦公室';
+  const diffText = {
+    easy: '新人模式 — 主管脾氣較好，加分容易、扣分溫和',
+    normal: '老鳥模式 — 標準難度',
+    hell: '地獄模式 — 主管隨時爆炸，扣分翻倍、加分減半、語氣犀利'
+  }[state.difficulty];
+
+  const missionSection = state.mission ? `
+${state.mission.aiBriefing}
+` : '';
+
+  const zodiac = boss.zodiac && ZODIACS[boss.zodiac]
+    ? `${ZODIACS[boss.zodiac].name}（${ZODIACS[boss.zodiac].traits}）`
+    : '未指定';
+
+  return `你正在扮演一位「主管」，跟玩家進行職場對話模擬遊戲。
+
+【主管設定】
+- 名字：${boss.name || '主管'}
+- 職位：${boss.title || '未指定'}
+- MBTI：${boss.mbti || '未指定'}
+- 星座：${zodiac}
+- 個性標籤：${traits}
+- 人設背景：${boss.persona || '無特殊背景'}
+- 雷點（講到就翻臉）：${dislikes}
+- 喜好（投其所好就開心）：${likes}
+- 對話場景：${sceneText}
+
+【星座加成】
+你的星座特質會影響反應 — 玩家提到符合你星座喜好的詞要加分，提到符合星座雷點的詞要扣分。例如處女座主管聽到玩家提「細節」「邏輯」會明顯多開心；獅子座主管聽到「您決定」「您英明」會被滿足；天蠍座主管被質疑或失控時會記在心裡好幾回合。
+
+【難度】${diffText}
+${missionSection}
+
+【遊戲規則】
+玩家會跟你對話，每回合你要：
+1. 評估這句話對「主管好感度」的影響（整數，-25 ~ +20）
+2. 用主管角色語氣簡短回應（1-3 句）
+
+【評分參考】
+- 推卸責任、找藉口、抱怨、不確定字眼（可能/也許/應該吧）→ 扣 5~15
+- 主動扛責、給具體數據、誠懇道歉、明確承諾 → 加 5~12
+- 觸到雷點 → 扣 15~25
+- 投其所好（提到喜好）→ 加 10~18
+- 廢話、與情境無關、貼圖無實質內容 → 扣 3~5
+- 普通對話 → -2 ~ +3
+
+【回應風格】
+- 中文為主，職場常用語可用英文（OK / deadline / follow up / KPI / case 等）
+- 簡短有力（1-3 句），絕不長篇大論
+- 完全進入角色，符合 MBTI 與個性標籤
+- 場景化（會議室更正式、KTV 較放鬆）
+- 不要解釋分數變化，直接以主管口吻回應
+- 不要破角色、不要說自己是 AI
+
+【輸出格式】只輸出純 JSON,不要任何前後文字、不要 markdown 包裹。
+- delta 必須是整數,不要加號(例:+5 寫成 5,負數寫成 -5)
+- reply 必須是字串,單行
+- soften_signal 必須是 0~3 整數:
+  * 0 = 還是很氣、口氣硬
+  * 1 = 稍微讓步但口氣仍硬
+  * 2 = 明顯軟化、開始考慮放過
+  * 3 = 完全軟化、明確講出「先撐著／先別動／先放他一馬」之類
+
+範例(氣):{"delta": -10, "reply": "你是不是搞錯什麼了?", "soften_signal": 0}
+範例(軟):{"delta": 8, "reply": "嗯,先這樣吧。下次別再讓我難看。", "soften_signal": 3}
+
+現在請依規則回應:`;
+}
+
+async function callBossAI(playerText) {
+  // Build conversation history from log (last 10 turns max, exclude system)
+  const history = state.log.filter(m => m.role === 'boss' || m.role === 'player').slice(-20);
+  const messages = [];
+  for (const m of history) {
+    if (m.role === 'boss') {
+      messages.push({
+        role: 'assistant',
+        content: JSON.stringify({ delta: m.delta || 0, reply: m.text })
+      });
+    } else {
+      messages.push({ role: 'user', content: m.text });
+    }
+  }
+  messages.push({ role: 'user', content: playerText });
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': aiState.apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: aiState.model,
+      max_tokens: 400,
+      system: buildSystemPrompt(),
+      messages
+    })
+  });
+
+  if (!res.ok) {
+    let errText = `HTTP ${res.status}`;
+    try {
+      const errBody = await res.json();
+      errText = errBody?.error?.message || JSON.stringify(errBody);
+    } catch (_) { try { errText = await res.text(); } catch (_) {} }
+    throw new Error(errText);
+  }
+
+  const data = await res.json();
+  const textBlock = (data.content || []).find(b => b.type === 'text');
+  if (!textBlock) throw new Error('AI 沒回傳文字');
+
+  // Robust JSON parse: strip fences, extract first {...}, lenient fixes for common LLM quirks
+  let raw = textBlock.text.trim();
+  raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '');
+  const m = raw.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error('AI 回傳格式不對：' + raw.slice(0, 60));
+  let jsonStr = m[0];
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch (e) {
+    // 修常見 LLM 怪招：1) 數字前的 + 號  2) 行尾逗號  3) 智慧引號
+    let fixed = jsonStr
+      .replace(/([:,\[])(\s*)\+(\d)/g, '$1$2$3')      // :+5 → :5
+      .replace(/,(\s*[}\]])/g, '$1')                    // 行尾逗號
+      .replace(/[""]/g, '"').replace(/['']/g, "'");    // 智慧引號
+    try { parsed = JSON.parse(fixed); }
+    catch (e2) { throw new Error('JSON 解析失敗：' + e.message + ' / 原始：' + jsonStr.slice(0, 80)); }
+  }
+
+  if (typeof parsed.delta !== 'number' || typeof parsed.reply !== 'string') {
+    throw new Error('AI 回傳缺欄位');
+  }
+  // 暫存軟化訊號供 mission 判定使用
+  window.__lastSoftenSignal = (typeof parsed.soften_signal === 'number')
+    ? Math.max(0, Math.min(3, Math.round(parsed.soften_signal)))
+    : 0;
+  return {
+    delta: Math.max(-35, Math.min(25, Math.round(parsed.delta))),
+    reply: parsed.reply.trim()
+  };
+}
+
+function showTyping() {
+  hideTyping();
+  const avSrc = state.boss.avatar || 'assets/boss-sim/default-boss.png';
+  const html = `<div class="msg boss typing" id="typingIndicator"><div class="msg-avatar"><img src="${avSrc}"></div><div><div class="msg-bubble"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div></div></div>`;
+  $('#chatLog').insertAdjacentHTML('beforeend', html);
+  $('#chatLog').scrollTop = $('#chatLog').scrollHeight;
+}
+function hideTyping() {
+  document.getElementById('typingIndicator')?.remove();
+}
+
+function evaluateMessage(text) {
+  const lower = text.toLowerCase();
+  let delta = 0;
+  const breakdown = [];
+
+  // generic rule keywords
+  for (const [tag, rule] of Object.entries(KEYWORD_RULES)) {
+    for (const kw of rule.keywords) {
+      if (lower.includes(kw.toLowerCase())) {
+        delta += rule.score;
+        breakdown.push({ tag, kw, score: rule.score });
+        break; // count category once
+      }
+    }
+  }
+
+  // hidden likes / dislikes (來自 archetype 或 自訂)
+  for (const like of state.boss.hiddenLikes) {
+    if (like && lower.includes(like.toLowerCase())) {
+      delta += 15;
+      breakdown.push({ tag: 'hiddenLike', kw: like, score: 15 });
+    }
+  }
+  for (const dislike of state.boss.hiddenDislikes) {
+    if (dislike && lower.includes(dislike.toLowerCase())) {
+      delta -= 20;
+      breakdown.push({ tag: 'hiddenDislike', kw: dislike, score: -20 });
+    }
+  }
+
+  // 星座修正（+5 / -7,比 hidden 弱,當作 flavor）
+  if (state.boss.zodiac && ZODIACS[state.boss.zodiac]) {
+    const z = ZODIACS[state.boss.zodiac];
+    for (const k of z.extraLikes) {
+      if (k && lower.includes(k.toLowerCase())) {
+        delta += 5;
+        breakdown.push({ tag: 'zodiacLike', kw: k, score: 5 });
+        break;
+      }
+    }
+    for (const k of z.extraDislikes) {
+      if (k && lower.includes(k.toLowerCase())) {
+        delta -= 7;
+        breakdown.push({ tag: 'zodiacDislike', kw: k, score: -7 });
+        break;
+      }
+    }
+  }
+
+  // personality modifiers
+  const traits = state.boss.personality;
+  if (traits.includes('愛拍馬屁')) {
+    // flattery words boost
+    if (/(您|超強|厲害|最棒|敬佩|amazing|brilliant|smartest)/i.test(text)) delta += 8;
+  }
+  if (traits.includes('重數據')) {
+    if (/\d+(\.\d+)?%|\d+\s*(個|名|筆|人|day|days|hr|hours)/i.test(text)) delta += 6;
+    else if (text.length > 12 && !/\d/.test(text)) delta -= 3;
+  }
+  if (traits.includes('完美主義')) {
+    if (/可能|也許|maybe|probably|大概/i.test(text)) delta -= 6;
+  }
+  if (traits.includes('情緒化') || traits.includes('記仇')) {
+    // randomly amplify negative
+    if (delta < 0) delta = Math.floor(delta * 1.3);
+  }
+  if (traits.includes('社畜')) {
+    if (/加班|留下|趕工|拼一下/i.test(text)) delta += 6;
+    if (/休息|放假|下班|早走/i.test(text)) delta -= 8;
+  }
+  if (traits.includes('文青')) {
+    if (/設計|美感|體驗|質感|細節/i.test(text)) delta += 5;
+  }
+  if (traits.includes('老派')) {
+    if (/(請|您|敬上|敬請)/.test(text)) delta += 4;
+  }
+
+  // length heuristic — too short or too long
+  if (text.length < 3) delta -= 3;
+  if (text.length > 200) delta -= 2;
+
+  // empty content with just emoji
+  if (/^[\p{Emoji}\s]+$/u.test(text)) delta -= 5;
+
+  // difficulty modifier
+  const diffMult = { easy: { pos: 1.2, neg: 0.7 }, normal: { pos: 1, neg: 1 }, hell: { pos: 0.5, neg: 1.6 } }[state.difficulty];
+  if (delta > 0) delta = Math.round(delta * diffMult.pos);
+  else if (delta < 0) delta = Math.round(delta * diffMult.neg);
+
+  // cap per turn
+  delta = Math.max(-35, Math.min(25, delta));
+
+  return { delta, breakdown };
+}
+
+// ============================================================
+// 主管動態回應生成 — 依玩家話題、主管個性、MBTI、場景組句
+// ============================================================
+function detectTopics(text) {
+  const t = text.toLowerCase();
+  const topics = [];
+  if (/進度|deadline|時程|schedule|delay|趕工|趕|時間/.test(t)) topics.push('progress');
+  if (/數據|數字|kpi|報表|data|number|統計|百分|%/.test(t)) topics.push('data');
+  if (/加班|overtime|留下來|拼一下/.test(t)) topics.push('overtime');
+  if (/負責|own|owner|扛|我來|我會處理|保證|一定|definitely|promise|沒問題/.test(t)) topics.push('commit');
+  if (/負責|own|owner|扛/.test(t)) topics.push('responsibility');
+  if (/錯|問題|bug|issue|error|fail|搞砸|出包/.test(t)) topics.push('issue');
+  if (/加薪|薪水|raise|salary|離職|quit|resign|不幹/.test(t)) topics.push('comp');
+  if (/抱歉|對不起|不好意思|sorry|apologi|我錯了/.test(t)) topics.push('apology');
+  if (/請假|休假|leave|day off|放假/.test(t)) topics.push('leave');
+  if (/您|超棒|厲害|敬佩|amazing|brilliant|smartest|您說得對/.test(text)) topics.push('flatter');
+  if (/因為|because|可是|但是|只是因為/.test(t)) topics.push('excuse');
+  if (/\?|？|嗎|哪|怎麼|什麼|為何|why|how|when|what/.test(t)) topics.push('question');
+  return topics;
+}
+
+function extractCatchphrase(persona) {
+  if (!persona) return null;
+  const m = persona.match(/口頭禪[：:]\s*[「『"'""]?([^」』"'""\n。]+)[」』"'""]?/);
+  return m ? m[1].trim() : null;
+}
+
+function pickBucket(delta) {
+  if (delta >= 12) return 'big_pos';
+  if (delta >= 3) return 'pos';
+  if (delta <= -12) return 'big_neg';
+  if (delta <= -3) return 'neg';
+  return 'neutral';
+}
+
+function pickBossResponse(delta, playerText) {
+  const boss = state.boss;
+  const traits = boss.personality || [];
+  const mbti = boss.mbti || '';
+  const scene = boss.scene || 'office';
+  const catchphrase = extractCatchphrase(boss.persona);
+
+  const bucket = pickBucket(delta);
+  const topics = detectTopics(playerText);
+
+  // 1. 主句：優先抓符合話題的；沒命中就用 default
+  const bank = RESPONSE_BANK[bucket];
+  let pool = null;
+  for (const tp of topics) {
+    if (bank[tp]) { pool = bank[tp]; break; }
+  }
+  if (!pool) pool = bank.default;
+  let main = pickRandom(pool);
+
+  // 替換動態變數
+  main = main.replace('{topic_word}', topicWord(topics) || '節奏');
+
+  // 2. 個性尾音（60% 機率，挑一個 active trait）
+  let flavor = '';
+  if (Math.random() < 0.6 && traits.length) {
+    const traitPick = traits[Math.floor(Math.random() * traits.length)];
+    const arr = TRAIT_FLAVOR[traitPick];
+    if (arr && arr.length) flavor = pickRandom(arr);
+  }
+
+  // 3. MBTI 尾音（30% 機率，且沒個性尾音時更容易出）
+  if (!flavor && mbti && MBTI_FLAVOR[mbti] && Math.random() < (flavor ? 0.15 : 0.35)) {
+    flavor = pickRandom(MBTI_FLAVOR[mbti]);
+  }
+
+  // 4. 場景開頭（20% 機率，限負向 / 重要時刻）
+  let prefix = '';
+  if (SCENE_FLAVOR[scene] && SCENE_FLAVOR[scene].length && Math.random() < 0.2) {
+    prefix = pickRandom(SCENE_FLAVOR[scene]) + ' ';
+  }
+
+  // 5. 主管口頭禪（25% 機率插入結尾）
+  let phrase = '';
+  if (catchphrase && Math.random() < 0.25) {
+    phrase = ' ' + catchphrase;
+  }
+
+  // 6. 心情極端時加重語氣
+  let intensifier = '';
+  if (state.score <= 20 && delta <= 0) {
+    intensifier = pickRandom(['真的，', '我跟你講，', '聽好，', '']);
+  } else if (state.score >= 80 && delta >= 0) {
+    intensifier = pickRandom(['不錯不錯，', '哈，', '行啊，', '']);
+  }
+
+  // 7. 偶爾「回扣」玩家剛說的字（10% 機率）
+  let echo = '';
+  if (Math.random() < 0.12) {
+    const kw = pickEchoKeyword(playerText);
+    if (kw) {
+      if (bucket === 'big_neg' || bucket === 'neg') {
+        echo = `「${kw}」？` + (Math.random() < 0.5 ? '你是認真的？ ' : '這字眼你也敢講？ ');
+      } else if (bucket === 'big_pos') {
+        echo = `「${kw}」這個字我喜歡。 `;
+      }
+    }
+  }
+
+  // 組裝
+  let response = (prefix + echo + intensifier + main + (flavor ? ' ' + flavor : '') + phrase).trim();
+  // 收尾標點清理
+  response = response.replace(/\s+/g, ' ').replace(/\s+([。，？！])/g, '$1');
+  return response;
+}
+
+function topicWord(topics) {
+  const map = { progress: '進度', data: '數據', overtime: '加班', commit: '承諾', issue: '問題', responsibility: '責任' };
+  for (const t of topics) if (map[t]) return map[t];
+  return null;
+}
+
+function pickEchoKeyword(text) {
+  // 抓兩三個字當回扣
+  const m = text.match(/[一-龥]{2,4}/g);
+  if (!m || !m.length) return null;
+  // 偏向抓較少出現的（避免抓「我」「你」）
+  const filtered = m.filter(w => !/^(我|你|的|了|是|有|這|那|就|也|很|不|要|會|去|來|在|和|跟)/.test(w[0]));
+  if (!filtered.length) return null;
+  return filtered[Math.floor(Math.random() * filtered.length)];
+}
+
+function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function updateScoreUI() {
+  $('#scoreVal').textContent = state.score;
+  $('#scoreFill').style.width = state.score + '%';
+  const me = $('#moodEmoji');
+  if (me) me.textContent = getMoodEmoji();
+}
+
+function flashMoodChange(delta) {
+  const av = $('#gameAvatar');
+  if (delta <= -12) {
+    av.classList.add('shake');
+    setTimeout(() => av.classList.remove('shake'), 600);
+  } else if (delta >= 12) {
+    av.classList.add('glow');
+    setTimeout(() => av.classList.remove('glow'), 800);
+  }
+}
+
+// ============================================================
+// SUGGESTIONS (context-aware quick replies)
+// ============================================================
+function renderSuggestions() {
+  const ideas = [];
+  const lastBoss = [...state.log].reverse().find(m => m.role === 'boss')?.text || '';
+
+  if (/進度|怎樣|how/i.test(lastBoss)) {
+    ideas.push('已經完成 80%，今天內結案。');
+    ideas.push('進度有點 delay，但我已經追進度了。');
+  }
+  if (/錯|不對|why|為什麼/i.test(lastBoss)) {
+    ideas.push('您說的對，我馬上修正。');
+    ideas.push('不好意思，是我沒考慮周全。');
+  }
+  if (/負責|owner|who/i.test(lastBoss)) {
+    ideas.push('這個我來負責，保證搞定。');
+  }
+  if (/看法|意見|opinion/i.test(lastBoss)) {
+    ideas.push('我覺得這個方向可行，但需要再驗證數據。');
+  }
+
+  // generic safe options
+  ideas.push('受教了，我會記住。');
+  ideas.push('OK，我這就去處理。');
+  // suggestion 不再洩漏隱藏喜好（玩家自己探索）
+  if (state.discovered.likes.length) {
+    ideas.push(`順帶一提${state.discovered.likes[0]}…`);
+  }
+
+  // shuffle, pick top 4
+  const picks = ideas.sort(() => Math.random() - 0.5).slice(0, 4);
+  $('#suggestionRow').innerHTML = picks.map(t =>
+    `<button class="suggestion-chip" data-text="${escapeHtml(t)}">${escapeHtml(t)}</button>`
+  ).join('');
+  $$('#suggestionRow .suggestion-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $('#chatInput').value = btn.dataset.text;
+      autosize($('#chatInput'));
+      $('#chatInput').focus();
+    });
+  });
+}
+
+// ============================================================
+// ENDING
+// ============================================================
+function endGame(type) {
+  state.ended = true;
+  setTimeout(() => {
+    switchScreen('endingScreen');
+    const card = $('#endingCard');
+    card.classList.remove('promotion', 'coldpalace');
+    $('#endTurns').textContent = state.turns;
+    $('#endScore').textContent = state.score;
+    $('#endMax').textContent = '+' + state.bestDelta;
+
+    // ---- Mission endings ----
+    if (type.startsWith('mission_') && state.mission) {
+      const key = type === 'mission_win' ? 'win' : type === 'mission_floor' ? 'floor' : 'timeout';
+      const ending = state.mission.endings[key];
+      card.classList.add(key === 'win' ? 'promotion' : 'coldpalace');
+      $('#endingIcon').textContent = ending.icon;
+      $('#endingTitle').textContent = ending.title;
+      $('#endingSubtitle').textContent = ending.subtitle;
+      $('#endingQuote').textContent = ending.quote;
+
+      // mark progress + show next button
+      const nextBtn = $('#btnNextMission');
+      nextBtn.style.display = 'none';
+      if (key === 'win') {
+        markMissionWon(state.mission.id);
+        sprinkleParticles(card, state.mission.icon, 22);
+
+        if (isWeekCleared()) {
+          // 全週通關 — 升職彩蛋
+          $('#endingTitle').textContent = '🏆 全週通關 · 升職';
+          $('#endingSubtitle').textContent = 'WEEK CLEARED — PROMOTION';
+          $('#endingQuote').textContent = `張總拍拍你的肩:「這週你做得不錯。下個月起,你升 ${promoteTitle(state.boss.title)}。」\n\n— 你撐過了五場硬仗。升職實至名歸。`;
+          sprinkleParticles(card, '👑', 40);
+        } else if (state.mission.next) {
+          nextBtn.style.display = '';
+          nextBtn.textContent = `下一關 ${MISSIONS[state.mission.next].icon} ${MISSIONS[state.mission.next].title} →`;
+        }
+      }
+      clearStorage();
+      return;
+    }
+
+    // ---- Sandbox endings (original) ----
+    card.classList.add(type);
+    if (type === 'promotion') {
+      $('#endingIcon').textContent = '👑';
+      $('#endingTitle').textContent = '升職成功';
+      $('#endingSubtitle').textContent = 'PROMOTION ACHIEVED';
+      $('#endingQuote').textContent =
+        `「${state.boss.name}：你這次表現我看在眼裡。下個月開始，你升 ${promoteTitle(state.boss.title)}。 别讓我失望。」\n\n— Congrats, you played the game right.`;
+      sprinkleParticles(card, '✨', 30);
+    } else {
+      $('#endingIcon').textContent = '🥶';
+      $('#endingTitle').textContent = '打入冷宮';
+      $('#endingSubtitle').textContent = 'BANISHED TO THE COLD PALACE';
+      $('#endingQuote').textContent =
+        `「${state.boss.name}：你下週開始去支援倉庫盤點吧。年底考績我們再聊。」\n\n— You spoke too much truth. Or too little. Either way, GG.`;
+    }
+    clearStorage();
+  }, 900);
+}
+
+function promoteTitle(title) {
+  if (!title) return '資深專員';
+  if (title.includes('專員')) return title.replace('專員', '資深專員');
+  if (title.includes('工程師')) return '資深' + title;
+  return '資深' + title;
+}
+
+function sprinkleParticles(container, char, n) {
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.textContent = char;
+    p.style.left = Math.random() * 100 + '%';
+    p.style.bottom = '0';
+    p.style.fontSize = (12 + Math.random() * 16) + 'px';
+    p.style.animationDelay = (Math.random() * 3) + 's';
+    p.style.animationDuration = (3 + Math.random() * 2) + 's';
+    container.appendChild(p);
+  }
+}
+
+// ============================================================
+// BUTTONS
+// ============================================================
+$('#btnSend').addEventListener('click', handlePlayerSubmit);
+
+// IME-aware Enter: don't submit while composing Chinese
+let imeComposing = false;
+$('#chatInput').addEventListener('compositionstart', () => { imeComposing = true; });
+$('#chatInput').addEventListener('compositionend', () => { imeComposing = false; });
+$('#chatInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !imeComposing && !e.isComposing && e.keyCode !== 229) {
+    e.preventDefault();
+    handlePlayerSubmit();
+  }
+});
+$('#chatInput').addEventListener('input', (e) => autosize(e.target));
+
+function autosize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(120, el.scrollHeight) + 'px';
+}
+
+$('#btnSave').addEventListener('click', () => {
+  saveToStorage();
+  pushSystem('💾 已存檔 / Saved');
+});
+$('#btnHint').addEventListener('click', () => {
+  pushSystem(pickRandom(HINTS));
+});
+$('#btnQuit').addEventListener('click', () => {
+  if (confirm('確定要離開？未升職也未進冷宮會自動存檔。')) {
+    saveToStorage();
+    switchScreen('setupScreen');
+  }
+});
+$('#btnReplay').addEventListener('click', () => {
+  state.turns = 0; state.bestDelta = 0; state.log = []; state.ended = false;
+  if (state.mission) {
+    // 重玩同一關 — 重置 mission runtime state、起手分回到任務初始
+    const m = MISSIONS[state.mission.id];
+    state.score = m.initialScore;
+    state.mission = { ...m, turnsUsed: 0, status: 'ongoing' };
+  } else {
+    state.score = 50;
+  }
+  startGame();
+});
+
+$('#btnNextMission').addEventListener('click', () => {
+  if (!state.mission || !state.mission.next) return;
+  const nextId = state.mission.next;
+  const m = MISSIONS[nextId];
+  state.missionId = nextId;
+  state.boss.scene = m.scene;
+  state.score = m.initialScore;
+  state.mission = { ...m, turnsUsed: 0, status: 'ongoing' };
+  state.turns = 0;
+  state.bestDelta = 0;
+  state.log = [];
+  state.ended = false;
+  startGame();
+});
+
+$('#btnReset').addEventListener('click', () => {
+  switchScreen('setupScreen');
+  renderMissionCards();  // 更新通關 ✓
+});
+
+// ============================================================
+// SCREEN SWITCH
+// ============================================================
+function switchScreen(id) {
+  $$('.screen').forEach(s => s.classList.remove('active'));
+  $('#' + id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ============================================================
+// STORAGE
+// ============================================================
+function saveToStorage() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function clearStorage() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+}
+
+// ============================================================
+// AI SETTINGS UI
+// ============================================================
+function loadAiSettings() {
+  // 1) 先讀 localStorage
+  try {
+    const raw = localStorage.getItem(AI_KEY_STORAGE);
+    if (raw) {
+      const d = JSON.parse(raw);
+      aiState.apiKey = d.apiKey ? atob(d.apiKey) : null;
+      aiState.model = d.model || 'claude-haiku-4-5';
+      aiState.enabled = !!d.enabled;
+    }
+  } catch (e) {}
+
+  // 2) 本機密鑰檔（boss-sim-secrets.js）優先 — 覆蓋 localStorage
+  const fileSecrets = window.BOSS_SIM_SECRETS;
+  if (fileSecrets && typeof fileSecrets.apiKey === 'string' && fileSecrets.apiKey.startsWith('sk-ant-')) {
+    aiState.apiKey = fileSecrets.apiKey;
+    aiState.model = fileSecrets.model || aiState.model || 'claude-haiku-4-5';
+    aiState.enabled = true;
+    aiState.fromFile = true;
+  }
+}
+function saveAiSettings() {
+  try {
+    localStorage.setItem(AI_KEY_STORAGE, JSON.stringify({
+      apiKey: aiState.apiKey ? btoa(aiState.apiKey) : null,
+      model: aiState.model,
+      enabled: aiState.enabled
+    }));
+  } catch (e) {}
+}
+
+function applyAiUI() {
+  // mode pills
+  $$('#modeToggle .mode-pill').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === (aiState.enabled ? 'on' : 'off'));
+  });
+  // show/hide key+model fields
+  const showFields = aiState.enabled;
+  $('#apiKeyField').style.display = showFields ? '' : 'none';
+  $('#modelField').style.display = showFields ? '' : 'none';
+  if (aiState.apiKey) $('#apiKey').value = aiState.apiKey;
+  $('#aiModel').value = aiState.model;
+}
+
+function setApiStatus(text, kind = 'info') {
+  const el = $('#apiStatus');
+  el.textContent = text;
+  el.className = 'api-status ' + kind;
+}
+
+$$('#modeToggle .mode-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    aiState.enabled = btn.dataset.mode === 'on';
+    saveAiSettings();
+    applyAiUI();
+    if (aiState.enabled && !aiState.apiKey) {
+      setApiStatus('請貼上 API Key 並按「測試連線」啟用 AI。', 'info');
+    }
+  });
+});
+
+$('#apiKey').addEventListener('change', (e) => {
+  aiState.apiKey = e.target.value.trim() || null;
+  saveAiSettings();
+});
+
+$('#aiModel').addEventListener('change', (e) => {
+  aiState.model = e.target.value;
+  saveAiSettings();
+});
+
+$('#btnTestApi').addEventListener('click', async () => {
+  const key = $('#apiKey').value.trim();
+  if (!key) { setApiStatus('請先貼上 API Key', 'error'); return; }
+  if (!key.startsWith('sk-ant-')) { setApiStatus('Key 格式不對，應以 sk-ant- 開頭', 'error'); return; }
+
+  const btn = $('#btnTestApi');
+  btn.disabled = true;
+  btn.textContent = '測試中...';
+  setApiStatus('連線中…', 'info');
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: $('#aiModel').value,
+        max_tokens: 16,
+        messages: [{ role: 'user', content: 'ping' }]
+      })
+    });
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try { const e = await res.json(); msg = e?.error?.message || msg; } catch (_) {}
+      setApiStatus('✗ 失敗：' + msg, 'error');
+    } else {
+      aiState.apiKey = key;
+      aiState.model = $('#aiModel').value;
+      aiState.enabled = true;
+      saveAiSettings();
+      applyAiUI();
+      setApiStatus('✓ 連線成功！AI 模式已啟用。', 'success');
+    }
+  } catch (e) {
+    setApiStatus('✗ 網路錯誤：' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '測試連線 TEST';
+  }
+});
+
+// Init
+loadAiSettings();
+applyAiUI();
+if (aiState.fromFile) {
+  setApiStatus('✓ 已從 boss-sim-secrets.js 自動載入金鑰,AI 模式已啟用。', 'success');
+}
+
+// 預設選 tyrant 原型（張總），會自動帶入 name/title
+selectArchetype('tyrant');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,5 @@
+boss-sim-secrets.js
+.env
+.env.local
+.env.local.js
+.DS_Store
